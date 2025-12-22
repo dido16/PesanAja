@@ -1,0 +1,77 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:padding="16dp"
+    android:background="#FFF5F5"> <TextView
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:text="Ringkasan Pesanan"
+    android:textSize="22sp"
+    android:textStyle="bold"
+    android:textColor="#D81B60"
+    android:layout_marginBottom="16dp" />
+
+    <TextView
+        android:id="@+id/tvDetailMeja"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Meja: -"
+        android:textSize="16sp"
+        android:layout_marginBottom="10dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvCheckoutItems"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginBottom="10dp" />
+
+    <EditText
+        android:id="@+id/etNamaPelanggan"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Nama Pelanggan (Wajib)"
+        android:padding="12dp"
+        android:background="@android:drawable/editbox_background"
+        android:layout_marginBottom="10dp" />
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="10dp"
+        android:background="#FFFFFF">
+
+        <TextView
+            android:id="@+id/tvSubtotal"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Subtotal: Rp 0" />
+
+        <TextView
+            android:id="@+id/tvPajak"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="PPN (10%): Rp 0" />
+
+        <TextView
+            android:id="@+id/tvTotalBayar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Total Bayar: Rp 0"
+            android:textStyle="bold"
+            android:textSize="18sp"
+            android:textColor="#2E7D32"
+            android:layout_marginTop="5dp" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/btnKonfirmasiPesan"
+        android:layout_width="match_parent"
+        android:layout_height="55dp"
+        android:text="Kirim Pesanan"
+        android:layout_marginTop="10dp"
+        android:backgroundTint="#4CAF50" />
+</LinearLayout>
