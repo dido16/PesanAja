@@ -3,41 +3,40 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#FFF9FB"> <LinearLayout
+    android:id="@+id/headerArea"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_alignParentTop="true"
+    android:background="#FFC1CC"
+    android:orientation="vertical"
+    android:padding="20dp">
 
-    <LinearLayout
-        android:id="@+id/headerArea"
-        android:layout_width="match_parent"
+    <TextView
+        android:id="@+id/tvMeja"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:background="#E91E63"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:text="Meja: --"
+        android:textColor="#880E4F"
+        android:textSize="22sp"
+        android:textStyle="bold" />
 
-        <TextView
-            android:id="@+id/tvMeja"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Meja: --"
-            android:textColor="@android:color/white"
-            android:textSize="20sp"
-            android:textStyle="bold" />
-
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Silakan pilih menu favoritmu"
-            android:textColor="@android:color/white"
-            android:textSize="14sp" />
-    </LinearLayout>
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pilih menu lezatmu hari ini!"
+        android:textColor="#AD1457"
+        android:textSize="14sp" />
+</LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerMenu"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_below="@id/headerArea"
         android:layout_above="@id/layoutCheckout"
-        android:padding="4dp"
-        android:clipToPadding="false"/>
+        android:layout_below="@id/headerArea"
+        android:clipToPadding="false"
+        android:padding="8dp" />
 
     <LinearLayout
         android:id="@+id/layoutCheckout"
@@ -52,12 +51,12 @@
             android:id="@+id/btnCheckout"
             android:layout_width="match_parent"
             android:layout_height="60dp"
-            android:backgroundTint="#4CAF50"
-            android:text="Pesan (0 item)"
+            android:backgroundTint="#A5D6A7"
+            android:text="Lanjut Pesan"
             android:textAllCaps="false"
+            android:textColor="#1B5E20"
             android:textSize="18sp"
             android:textStyle="bold"
-            app:cornerRadius="12dp" />
+            app:cornerRadius="16dp" />
     </LinearLayout>
-
 </RelativeLayout>

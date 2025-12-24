@@ -1,6 +1,7 @@
 package com.example.pesanaja.entities
 
 import com.google.gson.annotations.SerializedName
+import java.io.Serializable
 
 data class MenuModel(
     @SerializedName("id") val id: Int,
@@ -9,5 +10,5 @@ data class MenuModel(
     @SerializedName("description") val description: String?,
     @SerializedName("image") val image: String?,
     @SerializedName("price") val price: Int,
-    @SerializedName("has_level") val hasLevel: Int
-)
+    @SerializedName("perlu_level") val perluLevel: String
+) : Serializable

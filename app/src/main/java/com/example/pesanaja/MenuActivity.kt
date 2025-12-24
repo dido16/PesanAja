@@ -1,6 +1,6 @@
 package com.example.pesanaja
 
-import android.content.Intent // Tambahkan import Intent
+import android.content.Intent
 import android.os.Bundle
 import android.util.Log
 import android.widget.Button
@@ -22,7 +22,13 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
     private lateinit var btnPesan: Button
     private lateinit var tvMeja: TextView
     private var nomorMeja: String = ""
+
+    // Simpan Jumlah: MenuID -> Qty
     private val cartMap = mutableMapOf<Int, Int>()
+
+    // BARU: Simpan Level yang dipilih: MenuID -> Pair(LevelID, ExtraCost)
+    private val selectedLevels = mutableMapOf<Int, Pair<Int, Int>>()
+
     private var listMenu: List<MenuModel> = emptyList()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,23 +45,52 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
 
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        // Alur Baru: Pindah ke halaman Checkout
+        // Alur Baru: Pindah ke halaman Checkout dengan membawa data Level
         btnPesan.setOnClickListener {
             if (cartMap.isEmpty()) {
                 Toast.makeText(this, "Pilih menu dulu!", Toast.LENGTH_SHORT).show()
             } else {
-                // Ambil detail menu (Nama & Harga) dari list asli berdasarkan ID di cartMap
                 val selectedItems = ArrayList<CartItem>()
+
                 cartMap.forEach { (id, qty) ->
-                    val menuDetail = listMenu.find { it.id == id } // listMenu adalah data dari API
+                    val menuDetail = listMenu.find { it.id == id } // Ambil data menu asli
+
                     if (menuDetail != null) {
-                        selectedItems.add(CartItem(id, menuDetail.name, menuDetail.price, qty))
+                        // LOGIKA BARU: Tentukan Level dan Harga
+                        var finalLevelId: Int? = null
+                        var finalExtraCost = 0
+                        var perluLevel = false
+
+                        // Cek apakah menu butuh level (Sesuai database "YA")
+                        if (menuDetail.perluLevel == "YA") {
+                            perluLevel = true
+
+                            // Ambil level yang dipilih user dari map
+                            // Kalau user gak utak-atik spinner, Default ke Level ID 1 (Level 0/Netral)
+                            val levelInfo = selectedLevels[id] ?: Pair(1, 0)
+
+                            finalLevelId = levelInfo.first
+                            finalExtraCost = levelInfo.second
+                        }
+
+                        // Masukkan ke CartItem
+                        selectedItems.add(CartItem(
+                            menuId = id,
+                            menuName = menuDetail.name,
+                            price = menuDetail.price,
+                            quantity = qty,
+                            notes = "", // Catatan nanti diisi di Checkout
+                            perluLevel = perluLevel,
+                            levelId = finalLevelId,      // ID Level (misal 14 buat Immortality)
+                            extraCost = finalExtraCost   // Harga Tambahan (misal 500)
+                        ))
                     }
                 }
 
+                // Kirim semua data ke CheckoutActivity
                 val intent = Intent(this, CheckoutActivity::class.java)
                 intent.putExtra("meja", nomorMeja)
-                intent.putExtra("cart_list", selectedItems) // Kirim list objek CartItem
+                intent.putExtra("cart_list", selectedItems)
                 startActivity(intent)
             }
         }
@@ -86,10 +121,15 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
         recyclerView.adapter = adapter
     }
 
+    // Callback saat tombol Plus/Minus ditekan
     override fun onQuantityChange(menuId: Int, quantity: Int) {
         if (quantity > 0) cartMap[menuId] = quantity else cartMap.remove(menuId)
         btnPesan.text = "Pesan (${cartMap.values.sum()} item)"
     }
 
-    // Fungsi prosesCheckout() dihapus dari sini karena dipindah ke CheckoutActivity
+    // Callback saat Spinner Level dipilih (BARU)
+    override fun onLevelChange(menuId: Int, levelId: Int, extraCost: Int) {
+        // Simpan pilihan user ke map: ID Menu -> (ID Level, Harga Tambahan)
+        selectedLevels[menuId] = Pair(levelId, extraCost)
+    }
 }

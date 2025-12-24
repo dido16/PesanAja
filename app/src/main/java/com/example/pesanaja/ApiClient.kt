@@ -6,7 +6,7 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 object ApiClient {
     // Ganti dengan IP Laptop kamu. Jangan lupa port :8000 jika pakai php artisan serve
-    private const val BASE_URL = "http://192.168.36.97:8000/"
+    private const val BASE_URL = "http://192.168.0.102:8000/"
 
     val instance: ApiService by lazy {
         val retrofit = Retrofit.Builder()
