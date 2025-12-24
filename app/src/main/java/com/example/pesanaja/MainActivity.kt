@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import android.widget.Button
+import android.widget.ImageButton
 
 class MainActivity : AppCompatActivity() {
 
@@ -17,5 +18,10 @@ class MainActivity : AppCompatActivity() {
             val intent = Intent(this, ScanActivity::class.java)
             startActivity(intent)
         }
+
+        findViewById<ImageButton>(R.id.btnOpenHistory).setOnClickListener {
+            startActivity(Intent(this, HistoryActivity::class.java))
+        }
+
     }
 }

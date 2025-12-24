@@ -1,5 +1,6 @@
 package com.example.pesanaja
 
+import android.content.Context
 import android.content.Intent
 import android.os.Bundle
 import android.view.LayoutInflater
@@ -14,6 +15,7 @@ import com.example.pesanaja.ApiClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.util.UUID
 
 class CheckoutActivity : AppCompatActivity() {
 
@@ -98,29 +100,45 @@ class CheckoutActivity : AppCompatActivity() {
         builder.show()
     }
 
-    // --- BAGIAN INI DIMODIFIKASI UNTUK FITUR PEMBAYARAN GACOAN ---
+    private fun generateDeviceUUID(): String {
+        val prefs = getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+        var id = prefs.getString("device_uuid", null)
+
+        if (id == null) {
+            id = UUID.randomUUID().toString()
+            prefs.edit().putString("device_uuid", id).apply()
+        }
+        return id ?: "unknown_device"
+    }
+
     private fun prosesKirimAPI(nama: String) {
         val itemsToOrder = checkoutList.map {
             OrderItemRequest(it.menuId, it.quantity, it.levelId, it.notes)
         }
 
-        val request = OrderRequest(nomorMeja, nama, itemsToOrder)
+        val myDeviceId = generateDeviceUUID()
 
-        // Loading indicator opsional bisa ditaruh di sini
+        val request = OrderRequest(
+            meja = nomorMeja,
+            customerName = nama,
+            items = itemsToOrder,
+            deviceId = myDeviceId
+        )
+
+        btnKirim.text = "Mengirim..."
+        btnKirim.isEnabled = false
 
         ApiClient.instance.createOrder(request).enqueue(object : Callback<OrderResponse> {
             override fun onResponse(call: Call<OrderResponse>, response: Response<OrderResponse>) {
-                // 1. SUKSES CREATE ORDER
+                btnKirim.text = "Konfirmasi Pesanan"
+                btnKirim.isEnabled = true
+
                 if (response.isSuccessful && response.body()?.success == true) {
                     val orderResponse = response.body()
-
-                    // JANGAN LANGSUNG PINDAH, TAPI TAMPILKAN DIALOG BAYAR (GACOAN STYLE)
                     if (orderResponse != null) {
                         showPaymentDialog(orderResponse)
                     }
-                }
-                // 2. ERROR DARI LARAVEL (Misal: Meja Penuh)
-                else {
+                } else {
                     val errorBody = response.errorBody()?.string()
                     if (errorBody != null) {
                         try {
@@ -136,55 +154,44 @@ class CheckoutActivity : AppCompatActivity() {
             }
 
             override fun onFailure(call: Call<OrderResponse>, t: Throwable) {
+                btnKirim.text = "Konfirmasi Pesanan"
+                btnKirim.isEnabled = true
                 Toast.makeText(this@CheckoutActivity, "Koneksi Error: ${t.message}", Toast.LENGTH_SHORT).show()
             }
         })
     }
 
-    // --- FUNGSI BARU: TAMPILKAN POP-UP PEMBAYARAN (Layout: payment.xml) ---
     private fun showPaymentDialog(dataOrder: OrderResponse) {
         val dialogBuilder = AlertDialog.Builder(this)
-
-        // Memanggil layout 'payment.xml' sesuai request
         val view = LayoutInflater.from(this).inflate(R.layout.payment, null)
 
-        // Inisialisasi View dari payment.xml
         val tvTotal = view.findViewById<TextView>(R.id.tvTotalBayarDialog)
         val rgMethod = view.findViewById<RadioGroup>(R.id.rgPaymentMethod)
         val etPin = view.findViewById<EditText>(R.id.etPinPayment)
         val btnBayar = view.findViewById<Button>(R.id.btnProsesBayar)
         val btnBatal = view.findViewById<TextView>(R.id.btnBatalBayar)
 
-        // Set Total Harga dari respons API
         val totalHarga = dataOrder.orderData?.finalTotal?.toInt() ?: 0
         tvTotal.text = "Rp $totalHarga"
 
         dialogBuilder.setView(view)
         val dialog = dialogBuilder.create()
-        dialog.setCancelable(false) // User wajib memilih (Bayar atau Batal)
+        dialog.setCancelable(false)
 
-        // LOGIKA TOMBOL BAYAR
         btnBayar.setOnClickListener {
             val pin = etPin.text.toString()
-
-            // 1. Validasi Input PIN
             if (pin.isEmpty()) {
                 etPin.error = "Masukkan PIN dulu!"
                 return@setOnClickListener
             }
 
-            // 2. Simulasi PIN Benar = 123456
             if (pin == "123456") {
-                // Tampilkan metode yang dipilih (Optional)
                 val selectedId = rgMethod.checkedRadioButtonId
                 val method = view.findViewById<RadioButton>(selectedId)?.text.toString()
                 Toast.makeText(this, "Metode: $method terpilih", Toast.LENGTH_SHORT).show()
 
-                // Matikan tombol biar gak diklik 2x
                 btnBayar.text = "Memproses..."
                 btnBayar.isEnabled = false
-
-                // Panggil API Bayar
                 verifikasiPembayaran(dataOrder.orderData?.id ?: 0, dataOrder, dialog)
             } else {
                 etPin.error = "PIN Salah! Coba 123456"
@@ -192,29 +199,33 @@ class CheckoutActivity : AppCompatActivity() {
             }
         }
 
-        // LOGIKA TOMBOL BATAL (BAYAR NANTI)
         btnBatal.setOnClickListener {
             dialog.dismiss()
-            // Tetap pindah ke receipt, tapi status order di DB masih 'pending'
             pindahKeReceipt(dataOrder)
         }
 
         dialog.show()
     }
 
-    // --- FUNGSI BARU: REQUEST API PAY ORDER ---
     private fun verifikasiPembayaran(orderId: Int, originalResponse: OrderResponse, dialog: AlertDialog) {
         ApiClient.instance.payOrder(orderId).enqueue(object : Callback<OrderResponse> {
             override fun onResponse(call: Call<OrderResponse>, response: Response<OrderResponse>) {
                 dialog.dismiss()
 
-                if (response.isSuccessful) {
+                // --- BAGIAN INI KUNCINYA ---
+                // Pastikan kita ambil data TERBARU dari response bayar (yang statusnya sudah completed)
+                if (response.isSuccessful && response.body() != null) {
                     Toast.makeText(this@CheckoutActivity, "Pembayaran Lunas! Struk Dicetak.", Toast.LENGTH_LONG).show()
-                    // Pindah ke receipt
-                    pindahKeReceipt(originalResponse)
+
+                    // AMBIL DATA TERBARU (STATUS: COMPLETED)
+                    val dataTerbaru = response.body()!!
+
+                    // Kirim data TERBARU ini ke ReceiptActivity
+                    pindahKeReceipt(dataTerbaru)
+
                 } else {
                     Toast.makeText(this@CheckoutActivity, "Gagal Verifikasi: ${response.code()}", Toast.LENGTH_SHORT).show()
-                    // Tetap pindah ke receipt agar user tidak stuck
+                    // Kalau gagal bayar, baru kita kirim data lama (masih pending) biar user tau
                     pindahKeReceipt(originalResponse)
                 }
             }
@@ -227,13 +238,12 @@ class CheckoutActivity : AppCompatActivity() {
         })
     }
 
-    // --- FUNGSI PINDAH KE RECEIPT (Biar Rapi) ---
     private fun pindahKeReceipt(dataOrder: OrderResponse) {
         val intent = Intent(this@CheckoutActivity, ReceiptActivity::class.java)
         intent.putExtra("order_response", dataOrder)
         intent.putExtra("cart_list", ArrayList(checkoutList))
         intent.putExtra("meja", nomorMeja)
         startActivity(intent)
-        finish() // Tutup checkout
+        finish()
     }
 }
