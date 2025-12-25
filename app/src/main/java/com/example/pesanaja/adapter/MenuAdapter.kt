@@ -4,10 +4,15 @@ import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import androidx.appcompat.app.AppCompatActivity
+import androidx.cardview.widget.CardView
 import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
+import com.example.pesanaja.MenuDetail // Pastikan nama class BottomSheet kamu ini (MenuDetail atau MenuDetailBottomSheet)
 import com.example.pesanaja.R
 import com.example.pesanaja.entities.MenuModel
+import java.text.NumberFormat
+import java.util.Locale
 
 class MenuAdapter(
     private val listMenu: List<MenuModel>,
@@ -17,27 +22,31 @@ class MenuAdapter(
     // Simpan jumlah per menuId secara lokal
     private val quantities = mutableMapOf<Int, Int>()
 
-    // Interface diperbarui: Tambah onLevelChange buat nangkep pilihan spinner
     interface OnCartChangeListener {
         fun onQuantityChange(menuId: Int, quantity: Int)
+
+        // --- PERBAIKAN 1: BUKA KOMENTAR INI ---
+        // Biar MenuActivity gak error "overrides nothing"
         fun onLevelChange(menuId: Int, levelId: Int, extraCost: Int)
     }
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val imgMenu: ImageView = view.findViewById(R.id.imgMenu)
-        val txtNama: TextView = view.findViewById(R.id.txtNama)
-        val txtHarga: TextView = view.findViewById(R.id.txtHarga)
-        val txtQty: TextView = view.findViewById(R.id.txtQty)
-        val btnPlus: Button = view.findViewById(R.id.btnPlus)
-        val btnMinus: Button = view.findViewById(R.id.btnMinus)
+        // ID BARU SESUAI item_menu.xml
+        val ivImage: ImageView = view.findViewById(R.id.ivMenuImage)
+        val tvName: TextView = view.findViewById(R.id.tvMenuName)
+        val tvPrice: TextView = view.findViewById(R.id.tvMenuPrice)
+        val tvDesc: TextView = view.findViewById(R.id.tvMenuDesc)
 
-        // Komponen Baru buat Level (Sesuai XML item_menu.xml yang baru)
-        val layoutLevel: LinearLayout = view.findViewById(R.id.layoutLevelInput)
-        val spinnerLevel: Spinner = view.findViewById(R.id.spinnerLevel)
+        // Komponen Kontrol
+        val btnAdd: CardView = view.findViewById(R.id.btnAdd)
+        val btnMinus: CardView = view.findViewById(R.id.btnMinus)
+        val tvQty: TextView = view.findViewById(R.id.tvQuantity)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.menu_item, parent, false) // Pastikan nama file xml bener (item_menu atau menu_item)
+        // Pastikan nama file layout XML kamu 'item_menu' (sesuai yang kita buat sebelumnya)
+        // Kalau nama file kamu 'menu_item.xml', ganti jadi R.layout.menu_item
+        val view = LayoutInflater.from(parent.context).inflate(R.layout.menu_item, parent, false)
         return ViewHolder(view)
     }
 
@@ -45,73 +54,76 @@ class MenuAdapter(
         val menu = listMenu[position]
         val currentQty = quantities[menu.id] ?: 0
 
-        // Sesuaikan IP ini dengan konfigurasi lokalmu
-        val baseUrl = "http://192.168.0.102:8000/storage/images/menu/"
+        // 1. Set Data
+        holder.tvName.text = menu.name
+        holder.tvDesc.text = menu.description ?: "Menu lezat siap disantap."
+
+        val localeID = Locale("in", "ID")
+        val numberFormat = NumberFormat.getCurrencyInstance(localeID)
+        holder.tvPrice.text = numberFormat.format(menu.price)
+
+        // 2. Load Gambar
+        val baseUrl = "http://192.168.0.102:8000/storage/images/menu/" // Sesuaikan IP
         val fullImageUrl = baseUrl + (menu.image ?: "")
 
-        holder.txtNama.text = menu.name
-        holder.txtHarga.text = "Rp ${menu.price}"
-        holder.txtQty.text = currentQty.toString()
-
-        Glide.with(holder.imgMenu.context)
+        Glide.with(holder.itemView.context)
             .load(fullImageUrl)
-            .placeholder(R.drawable.placeholder_loading) // Pastikan gambar ini ada di drawable
-            .error(R.drawable.error_image) // Pastikan gambar ini ada di drawable
-            .into(holder.imgMenu)
+            .placeholder(android.R.drawable.ic_menu_gallery)
+            .error(android.R.drawable.ic_delete)
+            .into(holder.ivImage)
 
-        // --- FITUR LEVEL PEDAS ---
-        // Cek apakah menu ini butuh level (Sesuai data dari Laravel "YA"/"TIDAK")
-        if (menu.perluLevel == "YA") {
-            holder.layoutLevel.visibility = View.VISIBLE
-
-            // Data Level Hardcoded Sesuai Database Kamu
-            val levelNames = listOf(
-                "Level 0 (Netral)",
-                "Level 1",
-                "Level 2",
-                "Level 3",
-                "Level 4",
-                "Level 5 (+100)",
-                "Level 6 (+200)",
-                "Level 9 (+500)",
-                "Immortality (+500)",
-                "Heavenly Demon (+1000)"
-            )
-            val levelIds = listOf(1, 2, 3, 4, 5, 6, 7, 10, 14, 15)
-            val extraCosts = listOf(0, 0, 0, 0, 0, 100, 200, 500, 500, 1000)
-
-            val adapter = ArrayAdapter(holder.itemView.context, android.R.layout.simple_spinner_dropdown_item, levelNames)
-            holder.spinnerLevel.adapter = adapter
-
-            holder.spinnerLevel.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-                override fun onItemSelected(parent: AdapterView<*>?, view: View?, pos: Int, id: Long) {
-                    // Kirim data Level yang dipilih ke Activity
-                    listener.onLevelChange(menu.id, levelIds[pos], extraCosts[pos])
-                }
-                override fun onNothingSelected(parent: AdapterView<*>?) {}
-            }
+        // 3. Logika Visibility Tombol
+        if (currentQty > 0) {
+            holder.btnMinus.visibility = View.VISIBLE
+            holder.tvQty.visibility = View.VISIBLE
+            holder.tvQty.text = currentQty.toString()
         } else {
-            // Kalau menu nggak butuh level (misal Minuman), sembunyikan spinner
-            holder.layoutLevel.visibility = View.GONE
+            holder.btnMinus.visibility = View.GONE
+            holder.tvQty.visibility = View.GONE
         }
 
-        // --- TOMBOL PLUS MINUS ---
-        holder.btnPlus.setOnClickListener {
-            val newQty = (quantities[menu.id] ?: 0) + 1
-            quantities[menu.id] = newQty
-            holder.txtQty.text = newQty.toString()
-            listener.onQuantityChange(menu.id, newQty)
+        // --- INTERAKSI TOMBOL ---
+
+        holder.btnAdd.setOnClickListener {
+            val newQty = currentQty + 1
+            updateQty(menu.id, newQty)
         }
 
         holder.btnMinus.setOnClickListener {
-            val current = quantities[menu.id] ?: 0
-            if (current > 0) {
-                val newQty = current - 1
-                quantities[menu.id] = newQty
-                holder.txtQty.text = newQty.toString()
-                listener.onQuantityChange(menu.id, newQty)
+            if (currentQty > 0) {
+                val newQty = currentQty - 1
+                updateQty(menu.id, newQty)
             }
         }
+
+        // C. KLIK KARTU -> BUKA BOTTOM SHEET
+        holder.itemView.setOnClickListener {
+            val activity = holder.itemView.context as? AppCompatActivity
+
+            activity?.let { act ->
+                // --- PERBAIKAN 2: TERIMA 4 PARAMETER ---
+                // (qtyBaru, lvlId, extra, note)
+                val bottomSheet = MenuDetail(menu, currentQty) { qtyBaru, lvlId, extra, note ->
+
+                    // 1. Update Quantity
+                    updateQty(menu.id, qtyBaru)
+
+                    // 2. Kalau ada Level, kirim ke Activity
+                    if (lvlId != null) {
+                        listener.onLevelChange(menu.id, lvlId, extra)
+                    }
+
+                    // (Nanti 'note' bisa kita kirim juga kalau mau fitur catatan)
+                }
+                bottomSheet.show(act.supportFragmentManager, "MenuDetail")
+            }
+        }
+    }
+
+    private fun updateQty(id: Int, newQty: Int) {
+        quantities[id] = newQty
+        notifyDataSetChanged()
+        listener.onQuantityChange(id, newQty)
     }
 
     override fun getItemCount(): Int = listMenu.size

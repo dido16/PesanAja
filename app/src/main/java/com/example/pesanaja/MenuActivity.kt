@@ -12,21 +12,24 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.pesanaja.adapter.MenuAdapter
 import com.example.pesanaja.entities.CartItem
 import com.example.pesanaja.entities.MenuModel
+import com.example.pesanaja.ApiClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
+import java.text.NumberFormat
+import java.util.Locale
 
 class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
 
     private lateinit var recyclerView: RecyclerView
-    private lateinit var btnPesan: Button
+    private lateinit var btnCheckout: Button
     private lateinit var tvMeja: TextView
     private var nomorMeja: String = ""
 
     // Simpan Jumlah: MenuID -> Qty
     private val cartMap = mutableMapOf<Int, Int>()
 
-    // BARU: Simpan Level yang dipilih: MenuID -> Pair(LevelID, ExtraCost)
+    // Simpan Level yang dipilih: MenuID -> Pair(LevelID, ExtraCost)
     private val selectedLevels = mutableMapOf<Int, Pair<Int, Int>>()
 
     private var listMenu: List<MenuModel> = emptyList()
@@ -35,9 +38,9 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_menu)
 
-        // Inisialisasi View
+        // 1. Inisialisasi View (Sesuai ID di XML baru)
         recyclerView = findViewById(R.id.recyclerMenu)
-        btnPesan = findViewById(R.id.btnCheckout)
+        btnCheckout = findViewById(R.id.btnCheckout)
         tvMeja = findViewById(R.id.tvMeja)
 
         nomorMeja = intent.getStringExtra("meja") ?: "0"
@@ -45,57 +48,20 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
 
         recyclerView.layoutManager = LinearLayoutManager(this)
 
-        // Alur Baru: Pindah ke halaman Checkout dengan membawa data Level
-        btnPesan.setOnClickListener {
+        // 2. Logic Tombol Checkout
+        btnCheckout.setOnClickListener {
             if (cartMap.isEmpty()) {
-                Toast.makeText(this, "Pilih menu dulu!", Toast.LENGTH_SHORT).show()
+                Toast.makeText(this, "Keranjang masih kosong!", Toast.LENGTH_SHORT).show()
             } else {
-                val selectedItems = ArrayList<CartItem>()
-
-                cartMap.forEach { (id, qty) ->
-                    val menuDetail = listMenu.find { it.id == id } // Ambil data menu asli
-
-                    if (menuDetail != null) {
-                        // LOGIKA BARU: Tentukan Level dan Harga
-                        var finalLevelId: Int? = null
-                        var finalExtraCost = 0
-                        var perluLevel = false
-
-                        // Cek apakah menu butuh level (Sesuai database "YA")
-                        if (menuDetail.perluLevel == "YA") {
-                            perluLevel = true
-
-                            // Ambil level yang dipilih user dari map
-                            // Kalau user gak utak-atik spinner, Default ke Level ID 1 (Level 0/Netral)
-                            val levelInfo = selectedLevels[id] ?: Pair(1, 0)
-
-                            finalLevelId = levelInfo.first
-                            finalExtraCost = levelInfo.second
-                        }
-
-                        // Masukkan ke CartItem
-                        selectedItems.add(CartItem(
-                            menuId = id,
-                            menuName = menuDetail.name,
-                            price = menuDetail.price,
-                            quantity = qty,
-                            notes = "", // Catatan nanti diisi di Checkout
-                            perluLevel = perluLevel,
-                            levelId = finalLevelId,      // ID Level (misal 14 buat Immortality)
-                            extraCost = finalExtraCost   // Harga Tambahan (misal 500)
-                        ))
-                    }
-                }
-
-                // Kirim semua data ke CheckoutActivity
-                val intent = Intent(this, CheckoutActivity::class.java)
-                intent.putExtra("meja", nomorMeja)
-                intent.putExtra("cart_list", selectedItems)
-                startActivity(intent)
+                prosesKeCheckout()
             }
         }
 
+        // 3. Ambil Data
         loadMenu()
+
+        // Update tombol pertama kali (biar tulisannya Rp 0)
+        updateCheckoutButton()
     }
 
     private fun loadMenu() {
@@ -121,15 +87,100 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
         recyclerView.adapter = adapter
     }
 
-    // Callback saat tombol Plus/Minus ditekan
-    override fun onQuantityChange(menuId: Int, quantity: Int) {
-        if (quantity > 0) cartMap[menuId] = quantity else cartMap.remove(menuId)
-        btnPesan.text = "Pesan (${cartMap.values.sum()} item)"
+    // --- LOGIC HITUNG TOTAL HARGA (BIAR KEREN) ---
+    private fun updateCheckoutButton() {
+        var totalItem = 0
+        var totalPrice = 0.0
+
+        // Loop semua item yang dipilih
+        cartMap.forEach { (menuId, qty) ->
+            val menu = listMenu.find { it.id == menuId }
+            if (menu != null) {
+                totalItem += qty
+
+                // Cek harga tambahan dari level
+                val extraCost = selectedLevels[menuId]?.second ?: 0
+
+                // Rumus: (Harga Dasar + Harga Level) * Jumlah
+                totalPrice += (menu.price + extraCost) * qty
+            }
+        }
+
+        // Format Rupiah
+        val localeID = Locale("in", "ID")
+        val numberFormat = NumberFormat.getCurrencyInstance(localeID)
+        val formattedPrice = numberFormat.format(totalPrice)
+
+        if (totalItem > 0) {
+            btnCheckout.text = "Pesan ($totalItem Item) • $formattedPrice"
+            btnCheckout.isEnabled = true
+            btnCheckout.alpha = 1.0f
+        } else {
+            btnCheckout.text = "Keranjang Kosong"
+            btnCheckout.isEnabled = false
+            btnCheckout.alpha = 0.7f // Agak transparan kalau kosong
+        }
     }
 
-    // Callback saat Spinner Level dipilih (BARU)
+    // Callback dari Adapter saat Qty berubah
+    override fun onQuantityChange(menuId: Int, quantity: Int) {
+        if (quantity > 0) {
+            cartMap[menuId] = quantity
+        } else {
+            cartMap.remove(menuId)
+            // Kalau qty 0, hapus juga data levelnya biar bersih
+            selectedLevels.remove(menuId)
+        }
+        updateCheckoutButton() // Hitung ulang harga
+    }
+
+    // Callback dari Adapter saat Level berubah (via BottomSheet)
     override fun onLevelChange(menuId: Int, levelId: Int, extraCost: Int) {
-        // Simpan pilihan user ke map: ID Menu -> (ID Level, Harga Tambahan)
+        // Simpan pilihan user ke map
         selectedLevels[menuId] = Pair(levelId, extraCost)
+        updateCheckoutButton() // Hitung ulang harga (karena ada extra cost)
+    }
+
+    private fun prosesKeCheckout() {
+        val selectedItems = ArrayList<CartItem>()
+
+        cartMap.forEach { (id, qty) ->
+            val menuDetail = listMenu.find { it.id == id }
+
+            if (menuDetail != null) {
+                var finalLevelId: Int? = null
+                var finalExtraCost = 0
+                var perluLevel = false
+
+                // Cek Level
+                if (menuDetail.perluLevel == "YA") {
+                    perluLevel = true
+                    // Default ke Level 1 (Netral) kalau user lupa pilih
+                    val levelInfo = selectedLevels[id] ?: Pair(1, 0)
+                    finalLevelId = levelInfo.first
+                    finalExtraCost = levelInfo.second
+                }
+
+                selectedItems.add(CartItem(
+                    menuId = id,
+                    menuName = menuDetail.name, // Penting buat dikirim ke History nanti
+                    price = menuDetail.price,
+                    quantity = qty,
+                    notes = "",
+                    perluLevel = perluLevel,
+                    levelId = finalLevelId,
+                    extraCost = finalExtraCost,
+
+                    // Isi menuData buat CartItem (biar gak null di keranjang/checkout)
+                    // Kita bisa abaikan image-nya dulu atau isi kalau mau
+                    menuData = null
+                ))
+            }
+        }
+
+        val intent = Intent(this, CheckoutActivity::class.java)
+        intent.putExtra("meja", nomorMeja)
+        intent.putExtra("cart_list", selectedItems)
+        startActivity(intent)
     }
 }
