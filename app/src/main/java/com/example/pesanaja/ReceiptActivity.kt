@@ -1,6 +1,7 @@
 package com.example.pesanaja
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.*
@@ -16,7 +17,7 @@ import retrofit2.Response
 class ReceiptActivity : AppCompatActivity() {
 
     private lateinit var btnAction: Button
-    private lateinit var tvStatus: TextView
+    private lateinit var tvStatus: TextView // Tambahin ini biar bisa diakses global
 
     // Data Order
     private var orderData: OrderResponse? = null
@@ -26,15 +27,19 @@ class ReceiptActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_receipt)
 
-        // 1. Ambil Data dari Intent
+        // 1. Inisialisasi View
+        btnAction = findViewById(R.id.btnPayNow)
+        tvStatus = findViewById(R.id.tvStatusOrder) // Inisialisasi TextView Status
+
+        // 2. Ambil Data dari Intent
         orderData = intent.getSerializableExtra("order_response") as? OrderResponse
         val cartList = intent.getSerializableExtra("cart_list") as? ArrayList<CartItem> ?: arrayListOf()
         val meja = intent.getStringExtra("meja") ?: "0"
 
         val order = orderData?.orderData
-        currentStatus = order?.status ?: "pending" // Ambil status awal
+        currentStatus = order?.status ?: "pending"
 
-        // 2. Setup Tampilan Struk (Sama kayak sebelumnya)
+        // 3. Setup Teks Statis
         findViewById<TextView>(R.id.tvReceiptInfo).text = """
             Order ID: #${order?.id ?: "---"}
             Pelanggan: ${order?.customerName ?: "---"}
@@ -43,6 +48,7 @@ class ReceiptActivity : AppCompatActivity() {
 
         findViewById<TextView>(R.id.tvTimestamp).text = order?.createdAt ?: "---"
 
+        // 4. Render List Item
         val container = findViewById<LinearLayout>(R.id.containerItems)
         cartList.forEach { item ->
             val tvItem = TextView(this)
@@ -58,44 +64,48 @@ class ReceiptActivity : AppCompatActivity() {
         findViewById<TextView>(R.id.tvReceiptPajak).text = "Rp ${order?.taxAmount?.toInt() ?: 0}"
         findViewById<TextView>(R.id.tvReceiptGrandTotal).text = "Rp ${order?.finalTotal?.toInt() ?: 0}"
 
-        // 3. LOGIC TOMBOL DINAMIS (INI SOLUSI PLOT HOLE-NYA)
-        btnAction = findViewById(R.id.btnPayNow) // Pastikan ID di XML adalah btnPayNow atau sesuaikan
-
-        updateButtonState()
+        // 5. PANGGIL FUNGSI UPDATE TAMPILAN
+        updateTampilanStatus()
     }
 
-    private fun updateButtonState() {
-        if (currentStatus == "completed") {
-            // Kalau sudah Lunas
+    // --- FUNGSI BARU: UPDATE SEMUA (TEKS + WARNA + TOMBOL) ---
+    private fun updateTampilanStatus() {
+        if (currentStatus == "completed" || currentStatus == "paid") {
+            // A. UPDATE STATUS JADI HIJAU
+            tvStatus.text = "LUNAS / COMPLETED"
+            tvStatus.setTextColor(Color.parseColor("#4CAF50")) // Hijau
+
+            // B. UPDATE TOMBOL JADI KEMBALI
             btnAction.text = "Selesai & Kembali ke Menu"
             btnAction.backgroundTintList = getColorStateList(android.R.color.darker_gray)
             btnAction.setOnClickListener {
-                val i = Intent(this, MainActivity::class.java)
+                val i = Intent(this, MainActivity::class.java) // Atau MenuActivity
                 i.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
                 startActivity(i)
                 finish()
             }
         } else {
-            // Kalau Masih Pending (Plot Hole Case)
-            btnAction.text = "Bayar Sekarang (Pending)"
+            // A. UPDATE STATUS JADI MERAH
+            tvStatus.text = "PENDING / BELUM BAYAR"
+            tvStatus.setTextColor(Color.parseColor("#F44336")) // Merah
+
+            // B. UPDATE TOMBOL JADI BAYAR
+            btnAction.text = "Bayar Sekarang"
             btnAction.setOnClickListener {
-                // Munculin lagi Pop-up Bayar
                 if (orderData != null) {
                     showPaymentDialog(orderData!!)
                 } else {
-                    Toast.makeText(this, "Data order hilang, tidak bisa bayar", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(this, "Data order hilang", Toast.LENGTH_SHORT).show()
                 }
             }
         }
     }
 
-    // --- COPY PASTE FUNGSI PAYMENT DARI CHECKOUT ACTIVITY ---
     private fun showPaymentDialog(dataOrder: OrderResponse) {
         val dialogBuilder = AlertDialog.Builder(this)
-        val view = LayoutInflater.from(this).inflate(R.layout.payment, null) // Pakai layout payment.xml yang sama
+        val view = LayoutInflater.from(this).inflate(R.layout.payment, null)
 
         val tvTotal = view.findViewById<TextView>(R.id.tvTotalBayarDialog)
-        val rgMethod = view.findViewById<RadioGroup>(R.id.rgPaymentMethod)
         val etPin = view.findViewById<EditText>(R.id.etPinPayment)
         val btnBayar = view.findViewById<Button>(R.id.btnProsesBayar)
         val btnBatal = view.findViewById<TextView>(R.id.btnBatalBayar)
@@ -109,26 +119,18 @@ class ReceiptActivity : AppCompatActivity() {
 
         btnBayar.setOnClickListener {
             val pin = etPin.text.toString()
-            if (pin.isEmpty()) {
-                etPin.error = "Masukkan PIN dulu!"
-                return@setOnClickListener
-            }
-
             if (pin == "123456") {
                 btnBayar.text = "Memproses..."
                 btnBayar.isEnabled = false
                 verifikasiPembayaran(dataOrder.orderData?.id ?: 0, dialog)
             } else {
                 etPin.error = "PIN Salah!"
-                Toast.makeText(this, "PIN Salah!", Toast.LENGTH_SHORT).show()
             }
         }
 
         btnBatal.setOnClickListener {
             dialog.dismiss()
-            // Kalau batal di sini, gak ngapa-ngapain, tetep di halaman receipt status pending
         }
-
         dialog.show()
     }
 
@@ -137,11 +139,13 @@ class ReceiptActivity : AppCompatActivity() {
             override fun onResponse(call: Call<OrderResponse>, response: Response<OrderResponse>) {
                 dialog.dismiss()
                 if (response.isSuccessful) {
-                    Toast.makeText(this@ReceiptActivity, "Pembayaran Lunas! Meja Kosong.", Toast.LENGTH_LONG).show()
+                    Toast.makeText(this@ReceiptActivity, "Pembayaran Berhasil!", Toast.LENGTH_LONG).show()
 
-                    // UPDATE STATUS JADI COMPLETED
+                    // 1. UBAH STATUS DI VARIABEL
                     currentStatus = "completed"
-                    updateButtonState() // Ubah tombol jadi "Kembali ke Menu"
+
+                    // 2. REFRESH TAMPILAN (Biar teks Pending jadi Lunas seketika)
+                    updateTampilanStatus()
 
                 } else {
                     Toast.makeText(this@ReceiptActivity, "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()

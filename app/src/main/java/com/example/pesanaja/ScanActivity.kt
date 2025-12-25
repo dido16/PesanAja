@@ -1,10 +1,13 @@
 package com.example.pesanaja
 
 import android.Manifest
+import android.animation.ObjectAnimator
+import android.animation.ValueAnimator
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.os.Bundle
 import android.util.Log
+import android.widget.ImageView
 import android.widget.Toast
 import androidx.annotation.OptIn
 import androidx.appcompat.app.AppCompatActivity
@@ -31,6 +34,18 @@ class ScanActivity : AppCompatActivity() {
 
         previewView = findViewById(R.id.previewView)
 
+        // --- TAMBAHAN: LOGIC ANIMASI LASER ---
+        // Kita cari ID garis merah yang ada di XML tadi
+        val scanLine = findViewById<ImageView>(R.id.ivScanLine)
+
+        // Bikin animasi gerak vertikal (translationY) dari -300 ke 300
+        val animation = ObjectAnimator.ofFloat(scanLine, "translationY", -300f, 300f)
+        animation.duration = 2000 // Durasi 2 detik sekali jalan
+        animation.repeatMode = ValueAnimator.REVERSE // Bolak-balik (naik-turun)
+        animation.repeatCount = ValueAnimator.INFINITE // Gak berhenti-berhenti
+        animation.start()
+        // -------------------------------------
+
         // Cek izin kamera saat aplikasi dibuka
         if (hasCameraPermission()) {
             startCamera()
@@ -39,7 +54,7 @@ class ScanActivity : AppCompatActivity() {
         }
     }
 
-    // --- FUNGSI IZIN KAMERA (Yang tadi merah) ---
+    // --- FUNGSI IZIN KAMERA ---
     private fun hasCameraPermission(): Boolean {
         return ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) ==
                 PackageManager.PERMISSION_GRANTED

@@ -4,54 +4,79 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@android:color/white">
-
-    <View
-        android:id="@+id/viewHeader"
-        android:layout_width="match_parent"
-        android:layout_height="300dp"
-        android:background="#E91E63"
-        app:layout_constraintTop_toTopOf="parent" />
-
-    <ImageView
-        android:id="@+id/imgLogo"
-        android:layout_width="150dp"
-        android:layout_height="150dp"
-        android:src="@drawable/ic_launcher_foreground"
-        android:background="@drawable/placeholder"
-        app:layout_constraintBottom_toBottomOf="@+id/viewHeader"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="@+id/viewHeader" />
+    android:background="#F5F6F8"> <View
+    android:id="@+id/viewHeader"
+    android:layout_width="match_parent"
+    android:layout_height="280dp"
+    android:background="@drawable/bg_header_wave"
+    app:layout_constraintTop_toTopOf="parent" />
 
     <ImageButton
         android:id="@+id/btnOpenHistory"
         android:layout_width="48dp"
         android:layout_height="48dp"
+        android:layout_marginTop="24dp"
+        android:layout_marginEnd="24dp"
         android:src="@android:drawable/ic_menu_recent_history"
         android:background="?attr/selectableItemBackgroundBorderless"
-        android:layout_gravity="end"
-        />
+        app:tint="#FFFFFF"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Riwayat"
+        android:textColor="#FFFFFF"
+        android:textSize="10sp"
+        app:layout_constraintTop_toBottomOf="@id/btnOpenHistory"
+        app:layout_constraintEnd_toEndOf="@id/btnOpenHistory"
+        app:layout_constraintStart_toStartOf="@id/btnOpenHistory"/>
+
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardLogo"
+        android:layout_width="140dp"
+        android:layout_height="140dp"
+        app:cardCornerRadius="70dp"
+        app:cardElevation="10dp"
+        app:layout_constraintBottom_toBottomOf="@+id/viewHeader"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/viewHeader">
+
+        <ImageView
+            android:id="@+id/imgLogo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="20dp"
+            android:src="@drawable/restaurant"
+            android:background="#FFFFFF"
+            android:scaleType="centerCrop"/>
+    </androidx.cardview.widget.CardView>
 
     <TextView
         android:id="@+id/tvWelcome"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="32dp"
-        android:text="Selamat Datang di PesanAja"
-        android:textColor="#333333"
-        android:textSize="24sp"
+        android:layout_marginTop="40dp"
+        android:text="Pesan Aja"
+        android:textColor="#FF6F00"
+        android:textSize="32sp"
         android:textStyle="bold"
+        android:fontFamily="sans-serif-black"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/viewHeader" />
+        app:layout_constraintTop_toBottomOf="@+id/cardLogo" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
-        android:text="Pesan makanan lebih mudah dan cepat"
-        android:textColor="#777777"
+        android:text="Pesan makanan nggak pake ribet.\nTinggal Scan, Pesan, Makan!"
+        android:textAlignment="center"
+        android:textColor="#757575"
+        android:textSize="16sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/tvWelcome" />
@@ -59,13 +84,20 @@
     <com.google.android.material.button.MaterialButton
         android:id="@+id/btnScan"
         android:layout_width="match_parent"
-        android:layout_height="65dp"
-        android:layout_marginHorizontal="48dp"
-        android:layout_marginBottom="48dp"
+        android:layout_height="70dp"
+        android:layout_marginHorizontal="40dp"
+        android:layout_marginBottom="60dp"
         android:text="Scan QR Meja"
-        android:textSize="18sp"
-        app:cornerRadius="16dp"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:textColor="#FFFFFF"
+        app:backgroundTint="#FF6F00"
+        app:cornerRadius="35dp"
+        app:elevation="8dp"
         app:icon="@android:drawable/ic_menu_camera"
+        app:iconSize="28dp"
+        app:iconGravity="textStart"
+        app:iconPadding="16dp"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent" />

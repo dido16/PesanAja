@@ -22,8 +22,8 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_gravity="center"
-                android:text="PesanAja"
-                android:textColor="#E91E63"
+                android:text="Pesan Aja"
+                android:textColor="#F5711B"
                 android:textSize="28sp"
                 android:textStyle="bold" />
 
@@ -111,7 +111,7 @@
             android:layout_width="match_parent"
             android:layout_height="55dp"
             android:layout_marginTop="20dp"
-            android:backgroundTint="#E91E63"
+            android:backgroundTint="#F5711B"
             android:text="Memuat..."
             android:textAllCaps="false"
             android:textStyle="bold"/>

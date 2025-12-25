@@ -2,6 +2,8 @@ package com.example.pesanaja
 
 import android.content.Context
 import android.content.Intent
+import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.widget.*
@@ -11,7 +13,7 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pesanaja.adapter.CheckoutAdapter
 import com.example.pesanaja.entities.*
-import com.example.pesanaja.ApiClient
+import com.example.pesanaja.repository.ApiService
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -83,21 +85,68 @@ class CheckoutActivity : AppCompatActivity() {
         tvGrandTotal.text = "Total Bayar: Rp ${totalAkhir.toInt()}"
     }
 
+    // --- POP-UP KONFIRMASI (ESTETIK) ---
     private fun showConfirmationDialog(nama: String) {
+        // 1. Inflate Layout Custom
+        val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_confirm_order, null)
         val builder = AlertDialog.Builder(this)
-        builder.setTitle("Konfirmasi Pesanan")
+        builder.setView(dialogView)
 
-        var summary = "Nama: $nama\nMeja: $nomorMeja\n\n"
-        checkoutList.forEach {
-            val levelInfo = if (it.extraCost > 0) "(+Level)" else ""
-            summary += "- ${it.menuName} $levelInfo (${it.quantity}x)\n"
+        // 2. Inisialisasi View di dalam Dialog
+        val tvNama = dialogView.findViewById<TextView>(R.id.tvConfirmNama)
+        val tvMeja = dialogView.findViewById<TextView>(R.id.tvConfirmMeja)
+        val containerItems = dialogView.findViewById<LinearLayout>(R.id.containerConfirmItems)
+        val tvTotal = dialogView.findViewById<TextView>(R.id.tvConfirmTotal)
+        val btnBatal = dialogView.findViewById<Button>(R.id.btnBatalConfirm)
+        val btnKirimConfirm = dialogView.findViewById<Button>(R.id.btnKirimConfirm)
+
+        // 3. Set Data
+        tvNama.text = "Atas Nama: $nama"
+        tvMeja.text = "Meja: $nomorMeja"
+        // Ambil teks total bayar dari Activity utama (bersihkan labelnya)
+        tvTotal.text = tvGrandTotal.text.toString().replace("Total Bayar: ", "")
+
+        // 4. Loop Items & Masukkan ke Container (Dynamic View)
+        containerItems.removeAllViews()
+        checkoutList.forEach { item ->
+            // Bikin Layout Baris Item secara Programmatic
+            val row = LinearLayout(this)
+            row.orientation = LinearLayout.HORIZONTAL
+            row.setPadding(0, 8, 0, 8)
+
+            val tvItemName = TextView(this)
+            val levelInfo = if (item.extraCost > 0) "\n+Level" else ""
+            tvItemName.text = "${item.quantity}x ${item.menuName}$levelInfo"
+            tvItemName.setTextColor(Color.parseColor("#424242"))
+            tvItemName.textSize = 14f
+            tvItemName.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
+
+            val tvItemPrice = TextView(this)
+            val totalItem = (item.price + item.extraCost) * item.quantity
+            tvItemPrice.text = "Rp ${totalItem.toInt()}"
+            tvItemPrice.setTextColor(Color.parseColor("#757575"))
+            tvItemPrice.textSize = 14f
+
+            row.addView(tvItemName)
+            row.addView(tvItemPrice)
+            containerItems.addView(row)
         }
-        summary += "\n${tvGrandTotal.text}"
 
-        builder.setMessage(summary)
-        builder.setPositiveButton("Gas, Pesan!") { _, _ -> prosesKirimAPI(nama) }
-        builder.setNegativeButton("Cek Lagi", null)
-        builder.show()
+        // 5. Tampilkan Dialog
+        val dialog = builder.create()
+        // PENTING: Bikin background dialog transparan biar rounded corner CardView kelihatan
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+        dialog.show()
+
+        // 6. Aksi Tombol
+        btnBatal.setOnClickListener {
+            dialog.dismiss()
+        }
+
+        btnKirimConfirm.setOnClickListener {
+            dialog.dismiss()
+            prosesKirimAPI(nama)
+        }
     }
 
     private fun generateDeviceUUID(): String {
@@ -140,16 +189,7 @@ class CheckoutActivity : AppCompatActivity() {
                     }
                 } else {
                     val errorBody = response.errorBody()?.string()
-                    if (errorBody != null) {
-                        try {
-                            val errorResponse = com.google.gson.Gson().fromJson(errorBody, OrderResponse::class.java)
-                            Toast.makeText(this@CheckoutActivity, errorResponse.message, Toast.LENGTH_LONG).show()
-                        } catch (e: Exception) {
-                            Toast.makeText(this@CheckoutActivity, "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
-                        }
-                    } else {
-                        Toast.makeText(this@CheckoutActivity, "Terjadi Kesalahan (Code: ${response.code()})", Toast.LENGTH_SHORT).show()
-                    }
+                    Toast.makeText(this@CheckoutActivity, "Gagal Order: ${response.code()}", Toast.LENGTH_SHORT).show()
                 }
             }
 
@@ -212,20 +252,16 @@ class CheckoutActivity : AppCompatActivity() {
             override fun onResponse(call: Call<OrderResponse>, response: Response<OrderResponse>) {
                 dialog.dismiss()
 
-                // --- BAGIAN INI KUNCINYA ---
-                // Pastikan kita ambil data TERBARU dari response bayar (yang statusnya sudah completed)
+                // Pastikan kita ambil data TERBARU dari response bayar
                 if (response.isSuccessful && response.body() != null) {
                     Toast.makeText(this@CheckoutActivity, "Pembayaran Lunas! Struk Dicetak.", Toast.LENGTH_LONG).show()
 
                     // AMBIL DATA TERBARU (STATUS: COMPLETED)
                     val dataTerbaru = response.body()!!
-
-                    // Kirim data TERBARU ini ke ReceiptActivity
                     pindahKeReceipt(dataTerbaru)
 
                 } else {
                     Toast.makeText(this@CheckoutActivity, "Gagal Verifikasi: ${response.code()}", Toast.LENGTH_SHORT).show()
-                    // Kalau gagal bayar, baru kita kirim data lama (masih pending) biar user tau
                     pindahKeReceipt(originalResponse)
                 }
             }

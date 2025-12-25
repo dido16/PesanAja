@@ -1,13 +1,18 @@
 package com.example.pesanaja.adapter
 
+import android.content.Context
+import android.content.DialogInterface
+import android.graphics.Color
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
-import androidx.core.widget.addTextChangedListener
+import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 import com.example.pesanaja.R
 import com.example.pesanaja.entities.CartItem
+import java.text.NumberFormat
+import java.util.Locale
 
 class CheckoutAdapter(
     private val items: MutableList<CartItem>,
@@ -15,73 +20,122 @@ class CheckoutAdapter(
 ) : RecyclerView.Adapter<CheckoutAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val tvNama: TextView = view.findViewById(R.id.tvNamaMenu)
-        val tvDetail: TextView = view.findViewById(R.id.tvDetailHarga)
-        val etNote: EditText = view.findViewById(R.id.etNoteItem)
+        // ID BARU SESUAI item_checkout.xml
+        val tvNama: TextView = view.findViewById(R.id.tvCheckoutName)
+        val tvLevel: TextView = view.findViewById(R.id.tvCheckoutLevel)
+        val tvQty: TextView = view.findViewById(R.id.tvCheckoutQty) // Tulisan "1 x @Rp..."
+        val tvPrice: TextView = view.findViewById(R.id.tvCheckoutPrice) // Total harga kanan atas
         val btnRemove: ImageButton = view.findViewById(R.id.btnRemoveItem)
-        val layoutLevel: LinearLayout = view.findViewById(R.id.layoutLevel)
-        // Ganti Spinner jadi TextView
-        val tvInfoLevel: TextView = view.findViewById(R.id.tvInfoLevel)
+
+        // Komponen Catatan Baru
+        val layoutNote: LinearLayout = view.findViewById(R.id.layoutNoteTrigger)
+        val tvNote: TextView = view.findViewById(R.id.tvCheckoutNote)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        // Pastikan layout yang dipanggil benar 'item_checkout'
         val view = LayoutInflater.from(parent.context).inflate(R.layout.item_checkout, parent, false)
         return ViewHolder(view)
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
+
+        // Setup Format Rupiah
+        val localeID = Locale("in", "ID")
+        val numberFormat = NumberFormat.getCurrencyInstance(localeID)
+
+        // 1. Set Nama Menu
         holder.tvNama.text = item.menuName
 
-        // Hitung total harga per item
-        val totalPerItem = (item.price + item.extraCost) * item.quantity
-        holder.tvDetail.text = "${item.quantity} x Rp ${item.price + item.extraCost} = Rp $totalPerItem"
+        // 2. Hitung Harga
+        val hargaSatuan = item.price + item.extraCost
+        val totalHargaItem = hargaSatuan * item.quantity
 
-        // --- FITUR LEVEL (TAMPILKAN SAJA) ---
+        // Tampilan: "2 x @Rp 15.000"
+        holder.tvQty.text = "${item.quantity} x @${numberFormat.format(hargaSatuan)}"
+
+        // Tampilan Total Kanan Atas: "Rp 30.000"
+        holder.tvPrice.text = numberFormat.format(totalHargaItem)
+
+        // 3. LOGIC LEVEL (Tampilkan Nama Kerennya)
         if (item.perluLevel) {
-            holder.layoutLevel.visibility = View.VISIBLE
+            holder.tvLevel.visibility = View.VISIBLE
 
-            // Data Level untuk Translasi ID ke Nama (Hanya Read-Only)
-            val levelNames = listOf(
-                "Level 0 (Netral)",            // ID 1
-                "Level 1 (Sedikit)",           // ID 2
-                "Level 2",                     // ID 3
-                "Level 3",                     // ID 4
-                "Level 4",                     // ID 5
-                "Level 5 (+Rp 100)",           // ID 6
-                "Level 6 (+Rp 200)",           // ID 7
-                "Level 9 (Gila +Rp 500)",      // ID 10
-                "Immortality (+Rp 500)",       // ID 14
-                "Heavenly Demon (+Rp 1000)"    // ID 15
-            )
+            // Data Mapping Level (Sama kayak sebelumnya)
+            val levelNames = listOf("Level 0 (Netral)", "Level 1", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6", "Level 9", "Immortality", "Heavenly Demon")
             val levelIds = listOf(1, 2, 3, 4, 5, 6, 7, 10, 14, 15)
 
-            // Cari nama level berdasarkan ID yang tersimpan di CartItem
+            // Cari nama level berdasarkan ID
             val index = levelIds.indexOf(item.levelId)
-            if (index >= 0) {
-                holder.tvInfoLevel.text = "Pedas: ${levelNames[index]}"
-            } else {
-                holder.tvInfoLevel.text = "Level: Standard"
-            }
+            val namaLevel = if (index >= 0) levelNames[index] else "Level Custom"
+
+            // Format teks: "+ Immortality (Extra Rp 500)"
+            val extraInfo = if (item.extraCost > 0) " (+Rp ${item.extraCost})" else ""
+            holder.tvLevel.text = "+ $namaLevel$extraInfo"
 
         } else {
-            holder.layoutLevel.visibility = View.GONE
+            holder.tvLevel.visibility = View.GONE
         }
 
-        // --- Hapus Item ---
+        // 4. LOGIC CATATAN (POP-UP DIALOG)
+        if (item.notes.isNullOrEmpty()) {
+            holder.tvNote.text = "Tambahkan catatan..."
+            holder.tvNote.setTextColor(Color.parseColor("#9E9E9E")) // Abu-abu
+        } else {
+            holder.tvNote.text = item.notes
+            holder.tvNote.setTextColor(Color.parseColor("#212121")) // Hitam (Sudah diisi)
+        }
+
+        // Klik Kotak Catatan -> Muncul Dialog
+        holder.layoutNote.setOnClickListener {
+            showNoteDialog(holder.itemView.context, item, position)
+        }
+
+        // 5. Tombol Hapus
         holder.btnRemove.setOnClickListener {
             items.removeAt(holder.adapterPosition)
             notifyItemRemoved(holder.adapterPosition)
             notifyItemRangeChanged(holder.adapterPosition, items.size)
-            onTotalChanged()
+            onTotalChanged() // Update total harga di Activity
+        }
+    }
+
+    // FUNGSI BUAT MUNCULIN DIALOG INPUT TEXT
+    private fun showNoteDialog(context: Context, item: CartItem, position: Int) {
+        val builder = AlertDialog.Builder(context)
+        builder.setTitle("Catatan untuk ${item.menuName}")
+
+        // Bikin EditText programmatically (tanpa XML tambahan)
+        val input = EditText(context)
+        input.hint = "opsional"
+        input.setText(item.notes) // Isi teks yang sudah ada
+        input.setSelection(input.text.length) // Kursor taruh di belakang
+
+        // Kasih padding biar rapi dikit
+        val container = FrameLayout(context)
+        val params = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
+        params.leftMargin = 50
+        params.rightMargin = 50
+        params.topMargin = 20
+        input.layoutParams = params
+        container.addView(input)
+
+        builder.setView(container)
+
+        // Tombol Simpan
+        builder.setPositiveButton("Simpan") { _, _ ->
+            val catatannya = input.text.toString().trim()
+            item.notes = catatannya // Update data di list
+            notifyItemChanged(position) // Refresh tampilan baris ini aja
         }
 
-        // --- Catatan ---
-        holder.etNote.setOnFocusChangeListener(null)
-        holder.etNote.setText(item.notes)
-        holder.etNote.addTextChangedListener {
-            item.notes = it.toString()
+        // Tombol Batal
+        builder.setNegativeButton("Batal") { dialog, _ ->
+            dialog.cancel()
         }
+
+        builder.show()
     }
 
     override fun getItemCount(): Int = items.size

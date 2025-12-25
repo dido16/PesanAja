@@ -3,51 +3,59 @@
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
-
-    <androidx.camera.view.PreviewView
-        android:id="@+id/previewView"
-        android:layout_width="0dp"
-        android:layout_height="0dp"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+    android:layout_height="match_parent"
+    android:background="#000000"> <androidx.camera.view.PreviewView
+    android:id="@+id/previewView"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent" />
 
     <View
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:background="#80000000" />
+        android:background="#66000000" />
 
-    <View
-        android:id="@+id/focusFrame"
-        android:layout_width="250dp"
-        android:layout_height="250dp"
-        android:background="@android:color/transparent"
+    <ImageView
+        android:id="@+id/ivFocusFrame"
+        android:layout_width="280dp"
+        android:layout_height="280dp"
+        android:src="@drawable/ic_scan_viewfinder"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent" />
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.45"/>
 
-    <View
-        android:layout_width="250dp"
-        android:layout_height="2dp"
-        android:background="@android:color/white"
-        app:layout_constraintBottom_toBottomOf="@id/focusFrame"
-        app:layout_constraintEnd_toEndOf="@id/focusFrame"
-        app:layout_constraintStart_toStartOf="@id/focusFrame"
-        app:layout_constraintTop_toTopOf="@id/focusFrame" />
+    <ImageView
+        android:id="@+id/ivScanLine"
+        android:layout_width="260dp"
+        android:layout_height="4dp"
+        android:src="@drawable/bg_scan_line"
+        app:layout_constraintTop_toTopOf="@id/ivFocusFrame"
+        app:layout_constraintBottom_toBottomOf="@id/ivFocusFrame"
+        app:layout_constraintStart_toStartOf="@id/ivFocusFrame"
+        app:layout_constraintEnd_toEndOf="@id/ivFocusFrame" />
+
+    <TextView
+        android:id="@+id/tvTitleScan"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="32dp"
+        android:text="Scan QR Code Meja"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/ivFocusFrame" />
 
     <TextView
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:text="Arahkan kamera ke QR Code di Meja"
-        android:textColor="@android:color/white"
-        android:textSize="16sp"
-        android:textStyle="bold"
+        android:layout_marginTop="8dp"
+        android:text="Arahkan kamera ke kode QR yang ada di meja"
+        android:textColor="#CCCCCC"
+        android:textSize="14sp"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/focusFrame" />
-
+        app:layout_constraintTop_toBottomOf="@id/tvTitleScan" />
 </androidx.constraintlayout.widget.ConstraintLayout>
