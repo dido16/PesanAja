@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="320dp"
+    android:layout_height="wrap_content"
+    android:background="#FFFFFF"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Pembayaran"
+        android:textColor="#E91E63"
+        android:textSize="20sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:id="@+id/tvTotalBayarDialog"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="8dp"
+        android:text="Rp 0"
+        android:textColor="#4CAF50"
+        android:textSize="24sp"
+        android:textStyle="bold" />
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="16dp"
+        android:background="#EEEEEE" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Pilih Metode Bayar:"
+        android:textStyle="bold"
+        android:layout_marginBottom="8dp"/>
+
+    <RadioGroup
+        android:id="@+id/rgPaymentMethod"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+        <RadioButton
+            android:id="@+id/rbQris"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="QRIS (Scan)"
+            android:checked="true"/>
+
+        <RadioButton
+            android:id="@+id/rbGopay"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="GoPay / OVO / Dana"/>
+
+        <RadioButton
+            android:id="@+id/rbTunai"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Tunai (Bayar di Kasir)"/>
+    </RadioGroup>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:layout_marginVertical="16dp"
+        android:background="#EEEEEE" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Masukkan PIN Keamanan:"
+        android:textStyle="bold"/>
+
+    <com.google.android.material.textfield.TextInputLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:hint="PIN (Default: 123456)">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/etPinPayment"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="numberPassword"
+            android:maxLength="6"
+            android:textAlignment="center"
+            android:letterSpacing="0.2"/>
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <Button
+        android:id="@+id/btnProsesBayar"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_marginTop="20dp"
+        android:backgroundTint="#E91E63"
+        android:text="BAYAR SEKARANG"
+        android:textStyle="bold"/>
+
+    <TextView
+        android:id="@+id/btnBatalBayar"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:layout_marginTop="12dp"
+        android:text="Batal"
+        android:textColor="#757575"
+        android:textStyle="bold"
+        android:padding="8dp"/> </LinearLayout>

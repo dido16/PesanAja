@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#F5F6F8"> <LinearLayout
+    android:id="@+id/headerArea"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_alignParentTop="true"
+    android:background="#FFFFFF"
+    android:elevation="4dp"
+    android:orientation="vertical"
+    android:paddingHorizontal="20dp"
+    android:paddingVertical="24dp">
+
+    <TextView
+        android:id="@+id/tvMeja"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Meja: --"
+        android:textColor="#212121"
+        android:textSize="26sp"
+        android:textStyle="bold" />
+
+    <TextView
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="Mau makan enak apa hari ini?"
+        android:textColor="#757575"
+        android:textSize="14sp" />
+</LinearLayout>
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerMenu"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_above="@id/layoutCheckout"
+        android:layout_below="@id/headerArea"
+        android:clipToPadding="false"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp" />
+
+    <LinearLayout
+        android:id="@+id/layoutCheckout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:background="#FFFFFF"
+        android:elevation="16dp"
+        android:padding="20dp">
+
+        <Button
+            android:id="@+id/btnCheckout"
+            android:layout_width="match_parent"
+            android:layout_height="55dp"
+            android:backgroundTint="#FF6F00"
+            android:text="Lihat Keranjang &amp; Pesan"
+            android:textAllCaps="false"
+            android:textColor="#FFFFFF"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            app:cornerRadius="12dp"
+            android:stateListAnimator="@null"
+            android:elevation="4dp"/>
+    </LinearLayout>
+
+</RelativeLayout>
