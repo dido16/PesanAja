@@ -12,9 +12,11 @@ data class CartItem(
     @SerializedName("quantity") var quantity: Int,
     @SerializedName("notes") var notes: String? = "",
 
-    // Object Menu & Level (Opsional)
-    @SerializedName("menu") val menu: MenuModel? = null,
-    @SerializedName("level") val level: LevelModel? = null,
+    // --- PERBAIKAN DI SINI (UBAH 'val' JADI 'var') ---
+    // Agar bisa diedit/diupdate dari CheckoutActivity
+    @SerializedName("menu") var menu: MenuModel? = null,
+    @SerializedName("level") var level: LevelModel? = null,
+    // --------------------------------------------------
 
     var perluLevel: Boolean = false,
     @SerializedName("level_id") var levelId: Int? = null,
@@ -25,6 +27,3 @@ data class CartItem(
     @SerializedName("menu_name") var menuName: String? = null
 
 ) : Serializable
-
-// SAYA HAPUS data class MenuDetail DI SINI
-// Karena bikin bentrok nama dengan BottomSheet MenuDetail

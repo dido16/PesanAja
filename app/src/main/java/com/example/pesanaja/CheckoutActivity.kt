@@ -69,15 +69,66 @@ class CheckoutActivity : AppCompatActivity() {
         }
     }
 
+    // --- FIX BUG 2: Kirim data balik saat tombol Back HP ditekan ---
+    @Deprecated("Deprecated in Java")
+    override fun onBackPressed() {
+        kembalikanDataKeMenu()
+        super.onBackPressed()
+    }
+
+    private fun kembalikanDataKeMenu() {
+        val resultIntent = Intent()
+        resultIntent.putExtra("updated_cart", ArrayList(checkoutList))
+        setResult(RESULT_OK, resultIntent)
+    }
+
+    // --- SETUP RECYCLERVIEW DENGAN FITUR EDIT ---
     private fun setupRecyclerView() {
         rvItems.layoutManager = LinearLayoutManager(this)
-        rvItems.adapter = CheckoutAdapter(checkoutList) { hitungTagihan() }
+
+        rvItems.adapter = CheckoutAdapter(
+            items = checkoutList,
+            onTotalChanged = { hitungTagihan() },
+            onItemClick = { item, position ->
+                showEditDialog(item, position)
+            }
+        )
     }
+
+    // --- PERBAIKAN DI FUNGSI INI (NULL SAFETY FIX) ---
+    private fun showEditDialog(item: CartItem, position: Int) {
+        // Cek dulu, kalau menu null (harusnya gak mungkin), langsung stop biar gak crash
+        if (item.menu == null) return
+
+        // PENTING: Pakai tanda seru (!!) pada item.menu!!
+        val bottomSheet = MenuDetail(item.menu!!, item.quantity) { qtyBaru, lvlId, extra, note ->
+
+            if (qtyBaru == 0) {
+                checkoutList.removeAt(position)
+                rvItems.adapter?.notifyItemRemoved(position)
+            } else {
+                item.quantity = qtyBaru
+                item.levelId = lvlId
+                item.extraCost = extra.toDouble()
+                item.notes = note ?: ""
+
+                // PENTING: Pakai tanda seru (!!) lagi di sini
+                // Karena level di CartItem sudah diubah jadi VAR, ini aman
+                item.level = item.menu!!.levels?.find { it.id == lvlId }
+
+                rvItems.adapter?.notifyItemChanged(position)
+            }
+
+            hitungTagihan()
+        }
+
+        bottomSheet.show(supportFragmentManager, "EditItemSheet")
+    }
+    // --------------------------------------------------------
 
     private fun hitungTagihan() {
         var subtotal = 0.0
 
-        // Loop item dan hitung (Aman karena tipe data Double)
         for (item in checkoutList) {
             subtotal += (item.price + item.extraCost) * item.quantity
         }
@@ -85,7 +136,6 @@ class CheckoutActivity : AppCompatActivity() {
         val pajak = subtotal * 0.10
         val totalAkhir = subtotal + pajak
 
-        // Format Rupiah
         tvSubtotal.text = formatRupiah(subtotal)
         tvPajak.text = formatRupiah(pajak)
         tvGrandTotal.text = formatRupiah(totalAkhir)
@@ -97,7 +147,6 @@ class CheckoutActivity : AppCompatActivity() {
         return numberFormat.format(number).replace("Rp", "Rp ")
     }
 
-    // --- POP-UP KONFIRMASI ---
     private fun showConfirmationDialog(nama: String) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_confirm_order, null)
         val builder = AlertDialog.Builder(this)
@@ -110,12 +159,10 @@ class CheckoutActivity : AppCompatActivity() {
         val btnBatal = dialogView.findViewById<Button>(R.id.btnBatalConfirm)
         val btnKirimConfirm = dialogView.findViewById<Button>(R.id.btnKirimConfirm)
 
-        // Set Data
         tvNama.text = "Atas Nama: $nama"
         tvMeja.text = "Meja: $nomorMeja"
         tvTotal.text = tvGrandTotal.text
 
-        // Loop Items (Dynamic View)
         containerItems.removeAllViews()
         checkoutList.forEach { item ->
             val row = LinearLayout(this)
@@ -123,7 +170,6 @@ class CheckoutActivity : AppCompatActivity() {
             row.setPadding(0, 8, 0, 8)
 
             val tvItemName = TextView(this)
-            // Info Level & Catatan
             val levelInfo = if (item.extraCost > 0.0) "\n+Level" else ""
             val noteInfo = if (!item.notes.isNullOrEmpty()) "\nCatatan: ${item.notes}" else ""
 
@@ -198,13 +244,11 @@ class CheckoutActivity : AppCompatActivity() {
                         showPaymentDialog(orderResponse)
                     }
                 } else {
-                    // --- PERBAIKAN: Menangani Error 400 dengan Pesan Jelas ---
                     val errorBody = response.errorBody()?.string()
                     var errorMessage = "Gagal memproses pesanan."
 
                     if (errorBody != null) {
                         try {
-                            // Coba parsing pesan error dari JSON Laravel
                             val errorJson = org.json.JSONObject(errorBody)
                             errorMessage = errorJson.getString("message")
                         } catch (e: Exception) {
@@ -212,7 +256,6 @@ class CheckoutActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Munculkan Alert Dialog biar user sadar
                     AlertDialog.Builder(this@CheckoutActivity)
                         .setTitle("Gagal Order")
                         .setMessage(errorMessage)
@@ -236,12 +279,10 @@ class CheckoutActivity : AppCompatActivity() {
         val view = LayoutInflater.from(this).inflate(R.layout.payment, null)
 
         val tvTotal = view.findViewById<TextView>(R.id.tvTotalBayarDialog)
-        val rgMethod = view.findViewById<RadioGroup>(R.id.rgPaymentMethod)
         val etPin = view.findViewById<EditText>(R.id.etPinPayment)
         val btnBayar = view.findViewById<Button>(R.id.btnProsesBayar)
         val btnBatal = view.findViewById<TextView>(R.id.btnBatalBayar)
 
-        // Konversi Double ke String Rupiah
         val totalHarga = dataOrder.data?.finalTotal?.toDouble() ?: 0.0
         tvTotal.text = formatRupiah(totalHarga)
 

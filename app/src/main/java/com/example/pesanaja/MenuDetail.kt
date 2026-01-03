@@ -2,8 +2,8 @@ package com.example.pesanaja
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
-import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -27,6 +27,9 @@ class MenuDetail(
 
     // Variabel buat simpan catatan sementara
     private var currentNote: String = ""
+
+    // View references for updating UI
+    private lateinit var tvNotePreview: TextView
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
@@ -54,9 +57,9 @@ class MenuDetail(
         val layoutLevel: LinearLayout = view.findViewById(R.id.layoutSheetLevel)
         val spinnerLevel: Spinner = view.findViewById(R.id.spinnerLevel)
 
-        // Komponen Catatan (YANG BARU)
+        // Komponen Catatan
         val layoutNoteTrigger: LinearLayout = view.findViewById(R.id.layoutNoteTrigger)
-        val tvNotePreview: TextView = view.findViewById(R.id.tvNotePreview)
+        tvNotePreview = view.findViewById(R.id.tvNotePreview)
 
         // 2. SET DATA
         tvName.text = menu.name
@@ -64,19 +67,23 @@ class MenuDetail(
         updatePriceDisplay(tvPrice)
 
         // Load Gambar
-        val fullImageUrl = "http://192.168.0.102:8000/storage/images/menu/" + (menu.image ?: "")
-        Glide.with(this)
-            .load(fullImageUrl)
-            .placeholder(android.R.drawable.ic_menu_gallery)
-            .error(android.R.drawable.ic_delete)
-            .into(ivImage)
+        val fullImageUrl = "http://192.168.1.104:8000/storage/images/menu/" + (menu.image ?: "")
+        try {
+            Glide.with(this)
+                .load(fullImageUrl)
+                .placeholder(android.R.drawable.ic_menu_gallery)
+                .error(android.R.drawable.ic_delete)
+                .into(ivImage)
+        } catch (e: Exception) {
+            // Handle error silently
+        }
 
         tvQty.text = qty.toString()
 
         // 3. LOGIC LEVEL
         if (menu.hasLevel == 1 && !menu.levels.isNullOrEmpty()) {
             layoutLevel.visibility = View.VISIBLE
-            spinnerLevel.visibility = View.VISIBLE // Pastikan visible
+            spinnerLevel.visibility = View.VISIBLE
 
             val levelNames = menu.levels.map {
                 val cost = if (it.extraCost > 0) " (+${formatRupiah(it.extraCost.toDouble())})" else ""
@@ -102,18 +109,9 @@ class MenuDetail(
             selectedExtraCost = 0.0
         }
 
-        // 4. LOGIC CATATAN (KLIK TOMBOL -> MUNCUL DIALOG)
+        // 4. LOGIC CATATAN (MENGGUNAKAN POP-UP CANTIK)
         layoutNoteTrigger.setOnClickListener {
-            showNoteDialog(requireContext()) { noteBaru ->
-                currentNote = noteBaru
-                if (currentNote.isNotEmpty()) {
-                    tvNotePreview.text = currentNote
-                    tvNotePreview.setTextColor(Color.parseColor("#212121")) // Hitam
-                } else {
-                    tvNotePreview.text = "Tambahkan catatan..."
-                    tvNotePreview.setTextColor(Color.parseColor("#757575")) // Abu
-                }
-            }
+            showCustomNoteDialog()
         }
 
         // 5. TOMBOL PLUS MINUS
@@ -142,38 +140,54 @@ class MenuDetail(
         }
     }
 
-    // --- FUNGSI TAMPILKAN POP-UP DIALOG CATATAN ---
-    private fun showNoteDialog(context: Context, onNoteSaved: (String) -> Unit) {
+    // --- FUNGSI TAMPILKAN POP-UP DIALOG CATATAN (VERSI CANTIK) ---
+    private fun showCustomNoteDialog() {
+        val context = requireContext()
         val builder = AlertDialog.Builder(context)
-        builder.setTitle("Catatan Pesanan")
 
-        val input = EditText(context)
-        input.hint = ""
-        input.setText(currentNote) // Isi dengan catatan sebelumnya kalau ada
-        input.inputType = InputType.TYPE_CLASS_TEXT
-        input.setSelection(input.text.length) // Kursor di akhir
+        // 1. Inflate Layout Custom (dialog_note.xml)
+        val view = LayoutInflater.from(context).inflate(R.layout.dialog_note, null)
 
-        // Layout container buat margin
-        val container = FrameLayout(context)
-        val params = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        params.leftMargin = 60
-        params.rightMargin = 60
-        params.topMargin = 20
-        input.layoutParams = params
-        container.addView(input)
+        // 2. Init Views
+        val etDialogNote = view.findViewById<EditText>(R.id.etDialogNote)
+        val btnDialogSave = view.findViewById<Button>(R.id.btnDialogSave)
+        val btnDialogCancel = view.findViewById<Button>(R.id.btnDialogCancel)
+        val tvDialogTitle = view.findViewById<TextView>(R.id.tvDialogTitle)
 
-        builder.setView(container)
+        // 3. Set Data Awal
+        tvDialogTitle.text = "Catatan ${menu.name}"
+        etDialogNote.setText(currentNote)
+        etDialogNote.setSelection(etDialogNote.text.length)
 
-        builder.setPositiveButton("Simpan") { _, _ ->
-            val note = input.text.toString().trim()
-            onNoteSaved(note)
+        builder.setView(view)
+        val dialog = builder.create()
+
+        // 4. Set Background Transparan (PENTING untuk Rounded Corner)
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // 5. Action Tombol Simpan
+        btnDialogSave.setOnClickListener {
+            val inputNote = etDialogNote.text.toString().trim()
+            currentNote = inputNote
+
+            // Update UI Preview di BottomSheet
+            if (currentNote.isNotEmpty()) {
+                tvNotePreview.text = currentNote
+                tvNotePreview.setTextColor(Color.parseColor("#FF9800")) // Orange (Active)
+            } else {
+                tvNotePreview.text = "Tambahkan catatan..."
+                tvNotePreview.setTextColor(Color.parseColor("#757575")) // Grey
+            }
+
+            dialog.dismiss()
         }
 
-        builder.setNegativeButton("Batal") { dialog, _ ->
-            dialog.cancel()
+        // 6. Action Tombol Batal
+        btnDialogCancel.setOnClickListener {
+            dialog.dismiss()
         }
 
-        builder.show()
+        dialog.show()
     }
 
     private fun updatePriceDisplay(tvPrice: TextView) {

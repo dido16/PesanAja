@@ -1,11 +1,12 @@
 package com.example.pesanaja
 
+import android.app.Activity
 import android.content.Intent
 import android.os.Bundle
-import android.util.Log
 import android.widget.Button
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
@@ -25,9 +26,27 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
     private lateinit var btnCheckout: Button
     private lateinit var tvMeja: TextView
     private var nomorMeja: String = ""
-    private val cartList = ArrayList<CartItem>()
+    private var cartList = ArrayList<CartItem>()
 
     private var listMenu: List<MenuModel> = emptyList()
+
+    // --- FIX BUG 2: Penangkap Data Balikan dari Checkout ---
+    // Ini menangkap data keranjang terbaru kalau user menghapus item di Checkout
+    private val checkoutLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK) {
+            val updatedCart = result.data?.getSerializableExtra("updated_cart") as? ArrayList<CartItem>
+            if (updatedCart != null) {
+                cartList.clear()
+                cartList.addAll(updatedCart)
+                updateCheckoutButton()
+
+                // Opsional: Refresh tampilan list menu biar angkanya sinkron
+                (recyclerView.adapter as? MenuAdapter)?.notifyDataSetChanged()
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -72,14 +91,12 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
         })
     }
 
-    // --- LOGIC BARU: HITUNG TOTAL DARI LIST ---
     private fun updateCheckoutButton() {
         var totalItem = 0
         var totalPrice = 0.0
 
         for (item in cartList) {
             totalItem += item.quantity
-            // Harga = (Harga Dasar + Extra Cost) * Qty
             totalPrice += (item.price + item.extraCost) * item.quantity
         }
 
@@ -98,16 +115,13 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
         }
     }
 
-    // Callback 1: Dari Tombol Plus/Minus di Menu Biasa (Tanpa Level)
     override fun onQuantityChange(menuId: Int, quantity: Int) {
         val existingItem = cartList.find { it.menuId == menuId && it.levelId == null }
 
         if (quantity > 0) {
             if (existingItem != null) {
-                // Update qty kalau sudah ada
                 existingItem.quantity = quantity
             } else {
-                // Tambah baru kalau belum ada
                 val menuDetail = listMenu.find { it.id == menuId }
                 if (menuDetail != null) {
                     cartList.add(CartItem(
@@ -124,35 +138,41 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
                 }
             }
         } else {
-            // Kalau qty jadi 0, hapus dari list
             if (existingItem != null) cartList.remove(existingItem)
         }
         updateCheckoutButton()
     }
 
+    // --- FIX BUG 1: DOUBLE ITEM ---
     override fun onVariantChange(menuId: Int, qty: Int, levelId: Int?, extraCost: Int, note: String?) {
         val menuDetail = listMenu.find { it.id == menuId } ?: return
+
+        // PENTING: Ubah null jadi "" biar perbandingannya akurat
+        val noteBaru = note ?: ""
 
         // Cek apakah item dengan spek SAMA PERSIS sudah ada?
         val existingItem = cartList.find {
             it.menuId == menuId &&
                     it.levelId == levelId &&
-                    it.notes == (note ?: "")
+                    (it.notes ?: "") == noteBaru // Bandingkan string vs string (aman dari null)
         }
 
         if (existingItem != null) {
+            // Update qty item yang sudah ada
             existingItem.quantity = qty
+
+            // Kalau qty jadi 0, hapus
             if (qty == 0) cartList.remove(existingItem)
 
         } else {
-            // Kalau spek beda (Mie Lvl 5 vs Mie Lvl 3), BUAT BARU
+            // Item belum ada, buat baru
             if (qty > 0) {
                 cartList.add(CartItem(
                     menuId = menuId,
                     menuName = menuDetail.name,
                     price = menuDetail.price.toDouble(),
-                    quantity = qty, // Pakai Qty dari parameter
-                    notes = note ?: "",
+                    quantity = qty,
+                    notes = noteBaru,
                     perluLevel = (menuDetail.hasLevel == 1),
                     levelId = levelId,
                     extraCost = extraCost.toDouble(),
@@ -168,6 +188,8 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
         val intent = Intent(this, CheckoutActivity::class.java)
         intent.putExtra("meja", nomorMeja)
         intent.putExtra("cart_list", cartList)
-        startActivity(intent)
+
+        // PENTING: Gunakan launcher agar bisa terima data balik
+        checkoutLauncher.launch(intent)
     }
 }

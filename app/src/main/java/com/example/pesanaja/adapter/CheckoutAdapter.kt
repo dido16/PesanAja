@@ -2,7 +2,7 @@ package com.example.pesanaja.adapter
 
 import android.content.Context
 import android.graphics.Color
-import android.text.InputType
+import android.graphics.drawable.ColorDrawable
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -16,7 +16,9 @@ import java.util.Locale
 
 class CheckoutAdapter(
     private val items: MutableList<CartItem>,
-    private val onTotalChanged: () -> Unit
+    private val onTotalChanged: () -> Unit,
+    // Callback utama (tetap dipakai kalau klik body item)
+    private val onItemClick: (CartItem, Int) -> Unit
 ) : RecyclerView.Adapter<CheckoutAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
@@ -26,9 +28,9 @@ class CheckoutAdapter(
         val tvPrice: TextView = view.findViewById(R.id.tvCheckoutPrice)
         val btnRemove: ImageButton = view.findViewById(R.id.btnRemoveItem)
 
-        // Komponen Catatan
-        val layoutNote: LinearLayout = view.findViewById(R.id.layoutNoteTrigger)
+        // Bagian Catatan
         val tvNote: TextView = view.findViewById(R.id.tvCheckoutNote)
+        val layoutNote: LinearLayout = view.findViewById(R.id.layoutNoteTrigger)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
@@ -38,55 +40,42 @@ class CheckoutAdapter(
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
         val item = items[position]
-
-        // Setup Format Rupiah
         val localeID = Locale("in", "ID")
         val numberFormat = NumberFormat.getCurrencyInstance(localeID)
 
-        // 1. Set Nama Menu
+        // 1. Set Nama
         holder.tvNama.text = item.menuName
 
-        // 2. Hitung Harga (Double)
+        // 2. Hitung Harga
         val hargaSatuan = item.price + item.extraCost
         val totalHargaItem = hargaSatuan * item.quantity
 
-        // Tampilan Qty & Harga Satuan
-        holder.tvQty.text = "${item.quantity} x @${numberFormat.format(hargaSatuan)}"
-
-        // Tampilan Total Kanan Atas
+        // Format: "1 x Rp 12.000"
+        holder.tvQty.text = "${item.quantity} x ${numberFormat.format(hargaSatuan)}"
         holder.tvPrice.text = numberFormat.format(totalHargaItem)
 
-        // 3. LOGIC LEVEL
+        // 3. Logic Level
         if (item.perluLevel) {
             holder.tvLevel.visibility = View.VISIBLE
-
-            // Mapping Nama Level (Bisa disesuaikan dengan DB kamu)
-            val levelNames = listOf("Level 0 (Netral)", "Level 1", "Level 2", "Level 3", "Level 4", "Level 5", "Level 6", "Level 9", "Immortality", "Heavenly Demon")
-            val levelIds = listOf(1, 2, 3, 4, 5, 6, 7, 10, 14, 15)
-
-            val index = levelIds.indexOf(item.levelId)
-            val namaLevel = if (index >= 0) levelNames[index] else "Level Custom"
-
-            // Format Biaya Tambahan (Cek > 0.0 karena Double)
+            val namaLevel = item.level?.name ?: "Level Custom"
             val extraInfo = if (item.extraCost > 0.0) " (+${numberFormat.format(item.extraCost)})" else ""
-
-            holder.tvLevel.text = "+ $namaLevel$extraInfo"
+            holder.tvLevel.text = "+ Level $namaLevel$extraInfo"
         } else {
             holder.tvLevel.visibility = View.GONE
         }
 
-        // 4. LOGIC CATATAN
+        // 4. Logic Catatan Cantik
+        // Kita buat SELALU VISIBLE, biar bisa diklik untuk nambah catatan
+        holder.tvNote.visibility = View.VISIBLE
+
         if (item.notes.isNullOrEmpty()) {
             holder.tvNote.text = "Tambahkan catatan..."
-            holder.tvNote.setTextColor(Color.parseColor("#9E9E9E")) // Abu
+            holder.tvNote.setTextColor(Color.parseColor("#9E9E9E")) // Abu-abu
+            holder.tvNote.setTypeface(null, android.graphics.Typeface.ITALIC)
         } else {
-            holder.tvNote.text = item.notes
-            holder.tvNote.setTextColor(Color.parseColor("#FF6F00")) // Oranye biar kelihatan kalau ada isinya
-        }
-
-        // Klik untuk edit catatan
-        holder.layoutNote.setOnClickListener {
-            showNoteDialog(holder.itemView.context, item, position)
+            holder.tvNote.text = "Catatan: ${item.notes}"
+            holder.tvNote.setTextColor(Color.parseColor("#FF9800")) // Oranye (Biar kelihatan ada isi)
+            holder.tvNote.setTypeface(null, android.graphics.Typeface.NORMAL)
         }
 
         // 5. Tombol Hapus
@@ -94,42 +83,61 @@ class CheckoutAdapter(
             items.removeAt(holder.adapterPosition)
             notifyItemRemoved(holder.adapterPosition)
             notifyItemRangeChanged(holder.adapterPosition, items.size)
-            onTotalChanged() // Kabari Activity untuk hitung ulang total
+            onTotalChanged()
+        }
+
+        // --- FITUR EDIT ---
+
+        // A. Klik Body Item -> Buka Edit Full (BottomSheet yang lama)
+        holder.itemView.setOnClickListener {
+            onItemClick(item, holder.adapterPosition)
+        }
+
+        // B. Klik Bagian Catatan -> Buka Dialog Cantik Khusus Catatan
+        holder.layoutNote.setOnClickListener {
+            showCustomNoteDialog(holder.itemView.context, item, holder.adapterPosition)
         }
     }
 
-    private fun showNoteDialog(context: Context, item: CartItem, position: Int) {
-        val builder = AlertDialog.Builder(context)
-        builder.setTitle("Catatan ${item.menuName}")
+    // --- FUNGSI DIALOG CATATAN CANTIK ---
+    private fun showCustomNoteDialog(context: Context, item: CartItem, position: Int) {
+        val dialogBuilder = AlertDialog.Builder(context)
 
-        val input = EditText(context)
-        input.hint = "Contoh: Jangan pedas, Es sedikit..."
-        input.setText(item.notes)
-        input.inputType = InputType.TYPE_CLASS_TEXT // Set keyboard text biasa
-        input.setSelection(input.text.length)
+        // Inflate layout custom yang kita buat (dialog_note.xml)
+        val view = LayoutInflater.from(context).inflate(R.layout.dialog_note, null)
 
-        // Layout Container biar ada margin
-        val container = FrameLayout(context)
-        val params = FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT)
-        params.leftMargin = 60
-        params.rightMargin = 60
-        params.topMargin = 20
-        input.layoutParams = params
-        container.addView(input)
+        val etNote = view.findViewById<EditText>(R.id.etDialogNote)
+        val btnSave = view.findViewById<Button>(R.id.btnDialogSave)
+        val btnCancel = view.findViewById<Button>(R.id.btnDialogCancel)
+        val tvTitle = view.findViewById<TextView>(R.id.tvDialogTitle)
 
-        builder.setView(container)
+        // Set Data Awal
+        tvTitle.text = "Catatan ${item.menuName}"
+        etNote.setText(item.notes)
+        etNote.setSelection(etNote.text.length) // Taruh kursor di akhir teks
 
-        builder.setPositiveButton("Simpan") { _, _ ->
-            val catatannya = input.text.toString().trim()
+        dialogBuilder.setView(view)
+        val dialog = dialogBuilder.create()
+
+        // PENTING: Bikin background dialog transparan biar rounded corner-nya kelihatan
+        dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
+
+        // Aksi Tombol Simpan
+        btnSave.setOnClickListener {
+            val catatannya = etNote.text.toString().trim()
             item.notes = catatannya
-            notifyItemChanged(position) // Refresh item ini saja
+
+            // Update tampilan baris ini aja (biar warna teks berubah)
+            notifyItemChanged(position)
+            dialog.dismiss()
         }
 
-        builder.setNegativeButton("Batal") { dialog, _ ->
-            dialog.cancel()
+        // Aksi Tombol Batal
+        btnCancel.setOnClickListener {
+            dialog.dismiss()
         }
 
-        builder.show()
+        dialog.show()
     }
 
     override fun getItemCount(): Int = items.size
