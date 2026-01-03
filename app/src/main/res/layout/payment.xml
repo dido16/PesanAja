@@ -11,7 +11,7 @@
         android:layout_height="wrap_content"
         android:layout_gravity="center"
         android:text="Pembayaran"
-        android:textColor="#E91E63"
+        android:textColor="#FF6F00"
         android:textSize="20sp"
         android:textStyle="bold" />
 
@@ -97,7 +97,7 @@
         android:layout_width="match_parent"
         android:layout_height="50dp"
         android:layout_marginTop="20dp"
-        android:backgroundTint="#E91E63"
+        android:backgroundTint="#FF6F00"
         android:text="BAYAR SEKARANG"
         android:textStyle="bold"/>
 

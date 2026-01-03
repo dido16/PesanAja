@@ -3,9 +3,11 @@ package com.example.pesanaja
 import android.content.Intent
 import android.content.res.ColorStateList
 import android.graphics.Color
+import android.graphics.Typeface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
+import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -22,12 +24,15 @@ class ReceiptActivity : AppCompatActivity() {
 
     private lateinit var btnAction: Button
     private lateinit var tvStatus: TextView
+    private lateinit var tvTimestamp: TextView
+
+    // View Baru sesuai XML Cantik
+    private lateinit var tvMeja: TextView
+    private lateinit var tvPelanggan: TextView
 
     // Data Order
     private var orderResponse: OrderResponse? = null
     private var currentStatus: String = "pending"
-
-    // PERBAIKAN 1: Bikin variabel global buat simpan nomor meja
     private var nomorMeja: String = "0"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -37,43 +42,66 @@ class ReceiptActivity : AppCompatActivity() {
         // 1. Inisialisasi View
         btnAction = findViewById(R.id.btnPayNow)
         tvStatus = findViewById(R.id.tvStatusOrder)
+        tvTimestamp = findViewById(R.id.tvTimestamp)
+
+        // Init View Baru (Pecahan Info)
+        tvMeja = findViewById(R.id.tvReceiptMeja)
+        tvPelanggan = findViewById(R.id.tvReceiptPelanggan)
 
         // 2. Ambil Data dari Intent
         orderResponse = intent.getSerializableExtra("order_response") as? OrderResponse
         val cartList = intent.getSerializableExtra("cart_list") as? ArrayList<CartItem> ?: arrayListOf()
-
-        // PERBAIKAN 2: Simpan ke variabel global
         nomorMeja = intent.getStringExtra("meja") ?: "0"
 
         val orderData = orderResponse?.data
         currentStatus = orderData?.status ?: "pending"
 
-        // 3. Setup Teks Statis
-        findViewById<TextView>(R.id.tvReceiptInfo).text = """
-            Order ID: #${orderData?.id ?: "---"}
-            Pelanggan: ${orderData?.customerName ?: "---"}
-            Meja: $nomorMeja
-        """.trimIndent()
+        // 3. Set Data ke View (HEADER)
+        tvTimestamp.text = orderData?.createdAt ?: "Waktu tidak tersedia"
+        tvMeja.text = nomorMeja
+        tvPelanggan.text = orderData?.customerName ?: "Pelanggan"
 
-        findViewById<TextView>(R.id.tvTimestamp).text = orderData?.createdAt ?: "---"
-
-        // 4. Render List Item
+        // 4. Render List Item (Dibuat Kanan-Kiri biar Rapi)
         val container = findViewById<LinearLayout>(R.id.containerItems)
         container.removeAllViews()
 
         cartList.forEach { item ->
-            val tvItem = TextView(this)
-            val infoLevel = if (item.extraCost > 0.0) " (+Level)" else ""
-            val totalItem = (item.price + item.extraCost) * item.quantity
+            // Container Baris per Item
+            val row = LinearLayout(this)
+            row.layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT
+            )
+            row.orientation = LinearLayout.HORIZONTAL
+            row.setPadding(0, 8, 0, 8) // Jarak antar baris
 
-            tvItem.text = "${item.menuName}$infoLevel x${item.quantity} - ${formatRupiah(totalItem)}"
-            tvItem.textSize = 14f
-            tvItem.setTextColor(Color.parseColor("#424242"))
-            tvItem.setPadding(0, 4, 0, 4)
-            container.addView(tvItem)
+            // Bagian KIRI: Qty + Nama + Level
+            val tvName = TextView(this)
+            val infoLevel = if (item.extraCost > 0.0) " (+Level)" else ""
+            val noteInfo = if (!item.notes.isNullOrEmpty()) "\n   (${item.notes})" else ""
+
+            tvName.text = "${item.quantity}x ${item.menuName}$infoLevel$noteInfo"
+            tvName.textSize = 14f
+            tvName.setTextColor(Color.parseColor("#424242"))
+            tvName.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) // Weight 1
+
+            // Bagian KANAN: Total Harga per Item
+            val totalItem = (item.price + item.extraCost) * item.quantity
+            val tvPrice = TextView(this)
+            tvPrice.text = formatRupiah(totalItem)
+            tvPrice.textSize = 14f
+            tvPrice.setTextColor(Color.parseColor("#212121"))
+            tvPrice.typeface = Typeface.DEFAULT_BOLD
+
+            // Gabung ke Row
+            row.addView(tvName)
+            row.addView(tvPrice)
+
+            // Masukkan Row ke Container Utama
+            container.addView(row)
         }
 
-        // 5. Tampilkan Total Harga
+        // 5. Tampilkan Total Harga (Footer)
         findViewById<TextView>(R.id.tvReceiptSubtotal).text = formatRupiah(orderData?.subtotal ?: 0.0)
         findViewById<TextView>(R.id.tvReceiptPajak).text = formatRupiah(orderData?.taxAmount ?: 0.0)
         findViewById<TextView>(R.id.tvReceiptGrandTotal).text = formatRupiah(orderData?.finalTotal ?: 0.0)
@@ -88,46 +116,45 @@ class ReceiptActivity : AppCompatActivity() {
     }
 
     private fun updateTampilanStatus() {
+        // Reset Style Default Chip
+        // (Asumsi di XML sudah pakai @drawable/bg_status_pending)
+
         when (currentStatus) {
             "pending" -> {
-                tvStatus.text = "BELUM BAYAR"
-                tvStatus.setTextColor(Color.parseColor("#C62828"))
+                tvStatus.text = "PENDING / BELUM BAYAR"
+                tvStatus.setTextColor(Color.parseColor("#D32F2F")) // Merah
+                // Background tetap merah muda (default xml)
+
                 btnAction.visibility = View.VISIBLE
                 btnAction.text = "Bayar Sekarang"
                 btnAction.isEnabled = true
-                btnAction.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#FF6F00"))
+                btnAction.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F5711B")) // Orange
 
                 btnAction.setOnClickListener {
-                    if (orderResponse != null) {
-                        showPaymentDialog(orderResponse!!)
-                    } else {
-                        Toast.makeText(this, "Data order hilang", Toast.LENGTH_SHORT).show()
-                    }
+                    if (orderResponse != null) showPaymentDialog(orderResponse!!)
                 }
             }
-            "processing" -> {
+            "processing", "paid" -> {
                 tvStatus.text = "LUNAS / DIPROSES"
-                tvStatus.setTextColor(Color.parseColor("#F57C00"))
+                tvStatus.setTextColor(Color.parseColor("#388E3C")) // Hijau
+                // Opsional: Ganti background jadi hijau muda kalau punya drawable-nya
+                // tvStatus.setBackgroundResource(R.drawable.bg_status_success)
 
                 btnAction.visibility = View.VISIBLE
                 btnAction.text = "Selesai & Kembali ke Menu"
                 btnAction.backgroundTintList = ColorStateList.valueOf(Color.GRAY)
 
-                btnAction.setOnClickListener {
-                    kembaliKeMenu()
-                }
+                btnAction.setOnClickListener { kembaliKeMenu() }
             }
             "completed" -> {
                 tvStatus.text = "SELESAI"
-                tvStatus.setTextColor(Color.parseColor("#2E7D32"))
+                tvStatus.setTextColor(Color.parseColor("#388E3C")) // Hijau
 
                 btnAction.visibility = View.VISIBLE
                 btnAction.text = "Pesan Lagi"
                 btnAction.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#4CAF50"))
 
-                btnAction.setOnClickListener {
-                    kembaliKeMenu()
-                }
+                btnAction.setOnClickListener { kembaliKeMenu() }
             }
             "cancelled" -> {
                 tvStatus.text = "DIBATALKAN"
@@ -137,10 +164,9 @@ class ReceiptActivity : AppCompatActivity() {
         }
     }
 
-    // --- PERBAIKAN 3: BAWA NOMOR MEJA SAAT PINDAH ---
     private fun kembaliKeMenu() {
         val i = Intent(this, MenuActivity::class.java)
-        i.putExtra("meja", nomorMeja) // <--- INI KUNCINYA BIAR GAK JADI 0
+        i.putExtra("meja", nomorMeja)
         i.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
         startActivity(i)
         finish()
@@ -173,9 +199,7 @@ class ReceiptActivity : AppCompatActivity() {
             }
         }
 
-        btnBatal.setOnClickListener {
-            dialog.dismiss()
-        }
+        btnBatal.setOnClickListener { dialog.dismiss() }
         dialog.show()
     }
 
@@ -186,8 +210,11 @@ class ReceiptActivity : AppCompatActivity() {
 
                 if (response.isSuccessful && response.body()?.success == true) {
                     val resp = response.body()
+                    // Update status lokal
                     currentStatus = resp?.data?.status ?: "processing"
+                    // Update tampilan
                     updateTampilanStatus()
+
                     Toast.makeText(this@ReceiptActivity, "Pembayaran Berhasil!", Toast.LENGTH_SHORT).show()
                 } else {
                     btnAction.isEnabled = true
