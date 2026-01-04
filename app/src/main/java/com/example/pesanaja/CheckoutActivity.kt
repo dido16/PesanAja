@@ -6,6 +6,7 @@ import android.graphics.Color
 import android.graphics.drawable.ColorDrawable
 import android.os.Bundle
 import android.view.LayoutInflater
+import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -69,7 +70,7 @@ class CheckoutActivity : AppCompatActivity() {
         }
     }
 
-    // --- FIX BUG 2: Kirim data balik saat tombol Back HP ditekan ---
+    // --- FIX BUG: Kirim data balik saat tombol Back HP ditekan ---
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         kembalikanDataKeMenu()
@@ -82,7 +83,7 @@ class CheckoutActivity : AppCompatActivity() {
         setResult(RESULT_OK, resultIntent)
     }
 
-    // --- SETUP RECYCLERVIEW DENGAN FITUR EDIT ---
+    // --- SETUP RECYCLERVIEW ---
     private fun setupRecyclerView() {
         rvItems.layoutManager = LinearLayoutManager(this)
 
@@ -95,12 +96,10 @@ class CheckoutActivity : AppCompatActivity() {
         )
     }
 
-    // --- PERBAIKAN DI FUNGSI INI (NULL SAFETY FIX) ---
+    // --- FITUR EDIT ITEM ---
     private fun showEditDialog(item: CartItem, position: Int) {
-        // Cek dulu, kalau menu null (harusnya gak mungkin), langsung stop biar gak crash
         if (item.menu == null) return
 
-        // PENTING: Pakai tanda seru (!!) pada item.menu!!
         val bottomSheet = MenuDetail(item.menu!!, item.quantity) { qtyBaru, lvlId, extra, note ->
 
             if (qtyBaru == 0) {
@@ -111,9 +110,6 @@ class CheckoutActivity : AppCompatActivity() {
                 item.levelId = lvlId
                 item.extraCost = extra.toDouble()
                 item.notes = note ?: ""
-
-                // PENTING: Pakai tanda seru (!!) lagi di sini
-                // Karena level di CartItem sudah diubah jadi VAR, ini aman
                 item.level = item.menu!!.levels?.find { it.id == lvlId }
 
                 rvItems.adapter?.notifyItemChanged(position)
@@ -124,7 +120,6 @@ class CheckoutActivity : AppCompatActivity() {
 
         bottomSheet.show(supportFragmentManager, "EditItemSheet")
     }
-    // --------------------------------------------------------
 
     private fun hitungTagihan() {
         var subtotal = 0.0
@@ -147,6 +142,7 @@ class CheckoutActivity : AppCompatActivity() {
         return numberFormat.format(number).replace("Rp", "Rp ")
     }
 
+    // --- DIALOG KONFIRMASI AWAL ---
     private fun showConfirmationDialog(nama: String) {
         val dialogView = LayoutInflater.from(this).inflate(R.layout.dialog_confirm_order, null)
         val builder = AlertDialog.Builder(this)
@@ -211,6 +207,7 @@ class CheckoutActivity : AppCompatActivity() {
         return id ?: "unknown_device"
     }
 
+    // --- KIRIM API CREATE ORDER ---
     private fun prosesKirimAPI(nama: String) {
         val itemsToOrder = checkoutList.map {
             OrderItemRequest(
@@ -267,19 +264,24 @@ class CheckoutActivity : AppCompatActivity() {
             override fun onFailure(call: Call<OrderResponse>, t: Throwable) {
                 btnKirim.text = "Konfirmasi Pesanan"
                 btnKirim.isEnabled = true
-
                 val msg = if (t is java.net.ConnectException) "Cek koneksi internet Anda." else t.message
                 Toast.makeText(this@CheckoutActivity, "Error: $msg", Toast.LENGTH_SHORT).show()
             }
         })
     }
 
+    // --- LOGIC PEMBAYARAN  ---
     private fun showPaymentDialog(dataOrder: OrderResponse) {
         val dialogBuilder = AlertDialog.Builder(this)
         val view = LayoutInflater.from(this).inflate(R.layout.payment, null)
 
         val tvTotal = view.findViewById<TextView>(R.id.tvTotalBayarDialog)
+        val rgMethod = view.findViewById<RadioGroup>(R.id.rgPaymentMethod)
+
+        // Container PIN dan EditText
+        val layoutPin = view.findViewById<LinearLayout>(R.id.layoutPinContainer)
         val etPin = view.findViewById<EditText>(R.id.etPinPayment)
+
         val btnBayar = view.findViewById<Button>(R.id.btnProsesBayar)
         val btnBatal = view.findViewById<TextView>(R.id.btnBatalBayar)
 
@@ -290,22 +292,52 @@ class CheckoutActivity : AppCompatActivity() {
         val dialog = dialogBuilder.create()
         dialog.setCancelable(false)
 
-        btnBayar.setOnClickListener {
-            val pin = etPin.text.toString()
-            if (pin.isEmpty()) {
-                etPin.error = "Masukkan PIN dulu!"
-                return@setOnClickListener
-            }
-
-            if (pin == "123456") {
-                btnBayar.text = "Memproses..."
-                btnBayar.isEnabled = false
-                verifikasiPembayaran(dataOrder.data?.id ?: 0, dataOrder, dialog)
+        // 1. LISTENER RADIO BUTTON
+        rgMethod.setOnCheckedChangeListener { _, checkedId ->
+            if (checkedId == R.id.rbTunai) {
+                // Pilih Tunai: Sembunyikan PIN, Ubah Tombol
+                layoutPin.visibility = View.GONE
+                btnBayar.text = "KONFIRMASI DI KASIR"
             } else {
-                etPin.error = "PIN Salah! Coba 123456"
+                // Pilih Non-Tunai: Munculkan PIN
+                layoutPin.visibility = View.VISIBLE
+                btnBayar.text = "BAYAR SEKARANG"
             }
         }
 
+        // 2. LOGIKA TOMBOL BAYAR
+        btnBayar.setOnClickListener {
+            val selectedId = rgMethod.checkedRadioButtonId
+            if (selectedId == -1) {
+                Toast.makeText(this, "Pilih metode bayar dulu!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // A. KASIR / TUNAI
+            if (selectedId == R.id.rbTunai) {
+                dialog.dismiss()
+                // Pindah Receipt tanpa verifikasi PIN (Status tetap Pending)
+                pindahKeReceipt(dataOrder)
+            }
+            // B. E-WALLET / QRIS
+            else {
+                val pin = etPin.text.toString()
+                if (pin.isEmpty()) {
+                    etPin.error = "Masukkan PIN dulu!"
+                    return@setOnClickListener
+                }
+
+                if (pin == "123456") {
+                    btnBayar.text = "Memproses..."
+                    btnBayar.isEnabled = false
+                    verifikasiPembayaran(dataOrder.data?.id ?: 0, dataOrder, dialog)
+                } else {
+                    etPin.error = "PIN Salah! Coba 123456"
+                }
+            }
+        }
+
+        // 3. LOGIKA TOMBOL BATAL
         btnBatal.setOnClickListener {
             dialog.dismiss()
             pindahKeReceipt(dataOrder)

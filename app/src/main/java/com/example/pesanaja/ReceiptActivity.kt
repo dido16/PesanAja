@@ -7,13 +7,11 @@ import android.graphics.Typeface
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import com.example.pesanaja.entities.CartItem
 import com.example.pesanaja.entities.OrderResponse
-import com.example.pesanaja.ApiClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -25,12 +23,9 @@ class ReceiptActivity : AppCompatActivity() {
     private lateinit var btnAction: Button
     private lateinit var tvStatus: TextView
     private lateinit var tvTimestamp: TextView
-
-    // View Baru sesuai XML Cantik
     private lateinit var tvMeja: TextView
     private lateinit var tvPelanggan: TextView
 
-    // Data Order
     private var orderResponse: OrderResponse? = null
     private var currentStatus: String = "pending"
     private var nomorMeja: String = "0"
@@ -39,16 +34,12 @@ class ReceiptActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_receipt)
 
-        // 1. Inisialisasi View
         btnAction = findViewById(R.id.btnPayNow)
         tvStatus = findViewById(R.id.tvStatusOrder)
         tvTimestamp = findViewById(R.id.tvTimestamp)
-
-        // Init View Baru (Pecahan Info)
         tvMeja = findViewById(R.id.tvReceiptMeja)
         tvPelanggan = findViewById(R.id.tvReceiptPelanggan)
 
-        // 2. Ambil Data dari Intent
         orderResponse = intent.getSerializableExtra("order_response") as? OrderResponse
         val cartList = intent.getSerializableExtra("cart_list") as? ArrayList<CartItem> ?: arrayListOf()
         nomorMeja = intent.getStringExtra("meja") ?: "0"
@@ -56,26 +47,22 @@ class ReceiptActivity : AppCompatActivity() {
         val orderData = orderResponse?.data
         currentStatus = orderData?.status ?: "pending"
 
-        // 3. Set Data ke View (HEADER)
-        tvTimestamp.text = orderData?.createdAt ?: "Waktu tidak tersedia"
+        tvTimestamp.text = orderData?.createdAt ?: "-"
         tvMeja.text = nomorMeja
-        tvPelanggan.text = orderData?.customerName ?: "Pelanggan"
+        tvPelanggan.text = orderData?.customerName ?: "-"
 
-        // 4. Render List Item (Dibuat Kanan-Kiri biar Rapi)
+        // Render Items
         val container = findViewById<LinearLayout>(R.id.containerItems)
         container.removeAllViews()
-
         cartList.forEach { item ->
-            // Container Baris per Item
             val row = LinearLayout(this)
             row.layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
             row.orientation = LinearLayout.HORIZONTAL
-            row.setPadding(0, 8, 0, 8) // Jarak antar baris
+            row.setPadding(0, 8, 0, 8)
 
-            // Bagian KIRI: Qty + Nama + Level
             val tvName = TextView(this)
             val infoLevel = if (item.extraCost > 0.0) " (+Level)" else ""
             val noteInfo = if (!item.notes.isNullOrEmpty()) "\n   (${item.notes})" else ""
@@ -83,9 +70,8 @@ class ReceiptActivity : AppCompatActivity() {
             tvName.text = "${item.quantity}x ${item.menuName}$infoLevel$noteInfo"
             tvName.textSize = 14f
             tvName.setTextColor(Color.parseColor("#424242"))
-            tvName.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f) // Weight 1
+            tvName.layoutParams = LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f)
 
-            // Bagian KANAN: Total Harga per Item
             val totalItem = (item.price + item.extraCost) * item.quantity
             val tvPrice = TextView(this)
             tvPrice.text = formatRupiah(totalItem)
@@ -93,15 +79,11 @@ class ReceiptActivity : AppCompatActivity() {
             tvPrice.setTextColor(Color.parseColor("#212121"))
             tvPrice.typeface = Typeface.DEFAULT_BOLD
 
-            // Gabung ke Row
             row.addView(tvName)
             row.addView(tvPrice)
-
-            // Masukkan Row ke Container Utama
             container.addView(row)
         }
 
-        // 5. Tampilkan Total Harga (Footer)
         findViewById<TextView>(R.id.tvReceiptSubtotal).text = formatRupiah(orderData?.subtotal ?: 0.0)
         findViewById<TextView>(R.id.tvReceiptPajak).text = formatRupiah(orderData?.taxAmount ?: 0.0)
         findViewById<TextView>(R.id.tvReceiptGrandTotal).text = formatRupiah(orderData?.finalTotal ?: 0.0)
@@ -116,29 +98,39 @@ class ReceiptActivity : AppCompatActivity() {
     }
 
     private fun updateTampilanStatus() {
-        // Reset Style Default Chip
-        // (Asumsi di XML sudah pakai @drawable/bg_status_pending)
+        val paymentMethod = orderResponse?.data?.paymentMethod ?: ""
 
         when (currentStatus) {
             "pending" -> {
-                tvStatus.text = "PENDING / BELUM BAYAR"
-                tvStatus.setTextColor(Color.parseColor("#D32F2F")) // Merah
-                // Background tetap merah muda (default xml)
+                if (paymentMethod.equals("cash", ignoreCase = true) || paymentMethod.equals("tunai", ignoreCase = true)) {
+                    tvStatus.text = "MENUNGGU PEMBAYARAN DI KASIR"
+                    tvStatus.setTextColor(Color.parseColor("#FF6F00")) // Oranye
 
-                btnAction.visibility = View.VISIBLE
-                btnAction.text = "Bayar Sekarang"
-                btnAction.isEnabled = true
-                btnAction.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F5711B")) // Orange
+                    btnAction.visibility = View.VISIBLE
+                    btnAction.text = "Saya Sudah Bayar (Refresh)"
+                    btnAction.backgroundTintList = ColorStateList.valueOf(Color.GRAY)
 
-                btnAction.setOnClickListener {
-                    if (orderResponse != null) showPaymentDialog(orderResponse!!)
+                    btnAction.setOnClickListener {
+                        Toast.makeText(this, "Silakan cek status di kasir", Toast.LENGTH_SHORT).show()
+                        // Opsional: Bisa panggil API cek status disini
+                    }
+                } else {
+                    tvStatus.text = "BELUM LUNAS"
+                    tvStatus.setTextColor(Color.parseColor("#D32F2F")) // Merah
+
+                    btnAction.visibility = View.VISIBLE
+                    btnAction.text = "Bayar Sekarang"
+                    btnAction.isEnabled = true
+                    btnAction.backgroundTintList = ColorStateList.valueOf(Color.parseColor("#F5711B"))
+
+                    btnAction.setOnClickListener {
+                        if (orderResponse != null) showPaymentDialog(orderResponse!!)
+                    }
                 }
             }
             "processing", "paid" -> {
                 tvStatus.text = "LUNAS / DIPROSES"
-                tvStatus.setTextColor(Color.parseColor("#388E3C")) // Hijau
-                // Opsional: Ganti background jadi hijau muda kalau punya drawable-nya
-                // tvStatus.setBackgroundResource(R.drawable.bg_status_success)
+                tvStatus.setTextColor(Color.parseColor("#388E3C"))
 
                 btnAction.visibility = View.VISIBLE
                 btnAction.text = "Selesai & Kembali ke Menu"
@@ -148,7 +140,7 @@ class ReceiptActivity : AppCompatActivity() {
             }
             "completed" -> {
                 tvStatus.text = "SELESAI"
-                tvStatus.setTextColor(Color.parseColor("#388E3C")) // Hijau
+                tvStatus.setTextColor(Color.parseColor("#388E3C"))
 
                 btnAction.visibility = View.VISIBLE
                 btnAction.text = "Pesan Lagi"
@@ -177,6 +169,8 @@ class ReceiptActivity : AppCompatActivity() {
         val view = LayoutInflater.from(this).inflate(R.layout.payment, null)
 
         val tvTotal = view.findViewById<TextView>(R.id.tvTotalBayarDialog)
+        val rgMethod = view.findViewById<RadioGroup>(R.id.rgPaymentMethod)
+        val layoutPin = view.findViewById<LinearLayout>(R.id.layoutPinContainer)
         val etPin = view.findViewById<EditText>(R.id.etPinPayment)
         val btnBayar = view.findViewById<Button>(R.id.btnProsesBayar)
         val btnBatal = view.findViewById<TextView>(R.id.btnBatalBayar)
@@ -188,14 +182,47 @@ class ReceiptActivity : AppCompatActivity() {
         val dialog = dialogBuilder.create()
         dialog.setCancelable(false)
 
-        btnBayar.setOnClickListener {
-            val pin = etPin.text.toString()
-            if (pin == "123456") {
-                btnBayar.text = "Memproses..."
-                btnBayar.isEnabled = false
-                verifikasiPembayaran(responseAPI.data?.id ?: 0, dialog)
+        rgMethod.setOnCheckedChangeListener { _, checkedId ->
+            if (checkedId == R.id.rbTunai) {
+                layoutPin.visibility = View.GONE
+                btnBayar.text = "KONFIRMASI DI KASIR"
             } else {
-                etPin.error = "PIN Salah!"
+                layoutPin.visibility = View.VISIBLE
+                btnBayar.text = "BAYAR SEKARANG"
+            }
+        }
+
+        btnBayar.setOnClickListener {
+            val selectedId = rgMethod.checkedRadioButtonId
+            if (selectedId == -1) {
+                Toast.makeText(this, "Pilih metode bayar dulu!", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+
+            // A. TUNAI
+            if (selectedId == R.id.rbTunai) {
+                dialog.dismiss()
+                Toast.makeText(this, "Silakan menuju kasir untuk pembayaran.", Toast.LENGTH_LONG).show()
+
+                // Update data lokal manual agar UI berubah jadi 'Menunggu Kasir'
+                val oldData = orderResponse?.data
+                if (oldData != null) {
+                    val newData = oldData.copy(paymentMethod = "cash")
+                    orderResponse = OrderResponse(true, "Local Update", newData)
+                }
+                updateTampilanStatus()
+
+            }
+            // B. NON-TUNAI
+            else {
+                val pin = etPin.text.toString()
+                if (pin == "123456") {
+                    btnBayar.text = "Memproses..."
+                    btnBayar.isEnabled = false
+                    verifikasiPembayaran(responseAPI.data?.id ?: 0, dialog)
+                } else {
+                    etPin.error = "PIN Salah!"
+                }
             }
         }
 
@@ -210,11 +237,10 @@ class ReceiptActivity : AppCompatActivity() {
 
                 if (response.isSuccessful && response.body()?.success == true) {
                     val resp = response.body()
-                    // Update status lokal
                     currentStatus = resp?.data?.status ?: "processing"
-                    // Update tampilan
-                    updateTampilanStatus()
+                    orderResponse = resp
 
+                    updateTampilanStatus()
                     Toast.makeText(this@ReceiptActivity, "Pembayaran Berhasil!", Toast.LENGTH_SHORT).show()
                 } else {
                     btnAction.isEnabled = true

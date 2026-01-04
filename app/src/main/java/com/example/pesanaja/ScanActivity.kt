@@ -34,17 +34,14 @@ class ScanActivity : AppCompatActivity() {
 
         previewView = findViewById(R.id.previewView)
 
-        // --- TAMBAHAN: LOGIC ANIMASI LASER ---
-        // Kita cari ID garis merah yang ada di XML tadi
         val scanLine = findViewById<ImageView>(R.id.ivScanLine)
 
-        // Bikin animasi gerak vertikal (translationY) dari -300 ke 300
+        // Bikin animasi gerak vertikal
         val animation = ObjectAnimator.ofFloat(scanLine, "translationY", -300f, 300f)
-        animation.duration = 2000 // Durasi 2 detik sekali jalan
-        animation.repeatMode = ValueAnimator.REVERSE // Bolak-balik (naik-turun)
-        animation.repeatCount = ValueAnimator.INFINITE // Gak berhenti-berhenti
+        animation.duration = 2000
+        animation.repeatMode = ValueAnimator.REVERSE
+        animation.repeatCount = ValueAnimator.INFINITE
         animation.start()
-        // -------------------------------------
 
         // Cek izin kamera saat aplikasi dibuka
         if (hasCameraPermission()) {

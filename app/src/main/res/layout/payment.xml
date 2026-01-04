@@ -1,10 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="320dp"
     android:layout_height="wrap_content"
     android:background="#FFFFFF"
     android:orientation="vertical"
-    android:padding="20dp">
+    android:padding="24dp">
 
     <TextView
         android:layout_width="wrap_content"
@@ -70,27 +71,40 @@
         android:layout_marginVertical="16dp"
         android:background="#EEEEEE" />
 
-    <TextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Masukkan PIN Keamanan:"
-        android:textStyle="bold"/>
-
-    <com.google.android.material.textfield.TextInputLayout
+    <LinearLayout
+        android:id="@+id/layoutPinContainer"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp"
-        android:hint="PIN (Default: 123456)">
+        android:orientation="vertical">
 
-        <com.google.android.material.textfield.TextInputEditText
-            android:id="@+id/etPinPayment"
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Masukkan PIN Keamanan:"
+            android:textStyle="bold"/>
+
+        <com.google.android.material.textfield.TextInputLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:inputType="numberPassword"
-            android:maxLength="6"
-            android:textAlignment="center"
-            android:letterSpacing="0.2"/>
-    </com.google.android.material.textfield.TextInputLayout>
+            android:layout_marginTop="8dp"
+            android:hint="PIN (Default: 123456)"
+            app:boxBackgroundColor="#F5F5F5"
+            app:boxCornerRadiusTopStart="8dp"
+            app:boxCornerRadiusTopEnd="8dp"
+            app:boxCornerRadiusBottomStart="8dp"
+            app:boxCornerRadiusBottomEnd="8dp"
+            app:boxStrokeWidth="0dp">
+
+            <com.google.android.material.textfield.TextInputEditText
+                android:id="@+id/etPinPayment"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:inputType="numberPassword"
+                android:maxLength="6"
+                android:textAlignment="center"
+                android:letterSpacing="0.2"/>
+        </com.google.android.material.textfield.TextInputLayout>
+    </LinearLayout>
 
     <Button
         android:id="@+id/btnProsesBayar"
@@ -110,4 +124,6 @@
         android:text="Batal"
         android:textColor="#757575"
         android:textStyle="bold"
-        android:padding="8dp"/> </LinearLayout>
+        android:padding="8dp"/>
+
+</LinearLayout>

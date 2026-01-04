@@ -17,7 +17,6 @@ import java.util.Locale
 class CheckoutAdapter(
     private val items: MutableList<CartItem>,
     private val onTotalChanged: () -> Unit,
-    // Callback utama (tetap dipakai kalau klik body item)
     private val onItemClick: (CartItem, Int) -> Unit
 ) : RecyclerView.Adapter<CheckoutAdapter.ViewHolder>() {
 
@@ -64,8 +63,7 @@ class CheckoutAdapter(
             holder.tvLevel.visibility = View.GONE
         }
 
-        // 4. Logic Catatan Cantik
-        // Kita buat SELALU VISIBLE, biar bisa diklik untuk nambah catatan
+        // 4. Logic Catatan
         holder.tvNote.visibility = View.VISIBLE
 
         if (item.notes.isNullOrEmpty()) {
@@ -88,18 +86,16 @@ class CheckoutAdapter(
 
         // --- FITUR EDIT ---
 
-        // A. Klik Body Item -> Buka Edit Full (BottomSheet yang lama)
         holder.itemView.setOnClickListener {
             onItemClick(item, holder.adapterPosition)
         }
 
-        // B. Klik Bagian Catatan -> Buka Dialog Cantik Khusus Catatan
         holder.layoutNote.setOnClickListener {
             showCustomNoteDialog(holder.itemView.context, item, holder.adapterPosition)
         }
     }
 
-    // --- FUNGSI DIALOG CATATAN CANTIK ---
+    // --- FUNGSI DIALOG ---
     private fun showCustomNoteDialog(context: Context, item: CartItem, position: Int) {
         val dialogBuilder = AlertDialog.Builder(context)
 
@@ -114,25 +110,23 @@ class CheckoutAdapter(
         // Set Data Awal
         tvTitle.text = "Catatan ${item.menuName}"
         etNote.setText(item.notes)
-        etNote.setSelection(etNote.text.length) // Taruh kursor di akhir teks
+        etNote.setSelection(etNote.text.length)
 
         dialogBuilder.setView(view)
         val dialog = dialogBuilder.create()
 
-        // PENTING: Bikin background dialog transparan biar rounded corner-nya kelihatan
         dialog.window?.setBackgroundDrawable(ColorDrawable(Color.TRANSPARENT))
 
-        // Aksi Tombol Simpan
+        // Tombol Simpan
         btnSave.setOnClickListener {
             val catatannya = etNote.text.toString().trim()
             item.notes = catatannya
 
-            // Update tampilan baris ini aja (biar warna teks berubah)
             notifyItemChanged(position)
             dialog.dismiss()
         }
 
-        // Aksi Tombol Batal
+        // Tombol Batal
         btnCancel.setOnClickListener {
             dialog.dismiss()
         }

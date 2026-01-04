@@ -67,7 +67,7 @@ class MenuDetail(
         updatePriceDisplay(tvPrice)
 
         // Load Gambar
-        val fullImageUrl = "http://192.168.1.104:8000/storage/images/menu/" + (menu.image ?: "")
+        val fullImageUrl = "http://192.168.0.106:8000/storage/images/menu/" + (menu.image ?: "")
         try {
             Glide.with(this)
                 .load(fullImageUrl)

@@ -53,7 +53,7 @@ class MenuAdapter(
         val numberFormat = NumberFormat.getCurrencyInstance(localeID)
         holder.tvPrice.text = numberFormat.format(menu.price)
 
-        val fullImageUrl = "http://192.168.1.104:8000/storage/images/menu/" + (menu.image ?: "")
+        val fullImageUrl = "http://192.168.0.106:8000/storage/images/menu/" + (menu.image ?: "")
 
         Glide.with(holder.itemView.context)
             .load(fullImageUrl)
@@ -99,13 +99,11 @@ class MenuAdapter(
         activity?.let { act ->
             val bottomSheet = MenuDetail(menu, currentQty) { qtyBaru, lvlId, extra, note ->
 
-                // --- PERBAIKAN PENTING DI SINI ---
-
-                // 1. Update angka visual di list menu SAJA (Tanpa lapor onQuantityChange)
+                // 1. Update angka visual di list menu
                 quantities[menu.id] = qtyBaru
                 notifyItemChanged(listMenu.indexOf(menu))
 
-                // 2. Lapor ke Activity HANYA lewat jalur Variant (Biar gak double)
+                // 2. Lapor ke Activity HANYA lewat jalur Variant
                 listener.onVariantChange(menu.id, qtyBaru, lvlId, extra, note)
             }
             bottomSheet.show(act.supportFragmentManager, "MenuDetail")
@@ -114,7 +112,7 @@ class MenuAdapter(
 
     private fun updateQty(id: Int, newQty: Int, position: Int) {
         quantities[id] = newQty
-        listener.onQuantityChange(id, newQty) // Ini hanya dipanggil tombol +/- biasa
+        listener.onQuantityChange(id, newQty)
         if (position != -1) notifyItemChanged(position) else notifyDataSetChanged()
     }
 

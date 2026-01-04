@@ -13,7 +13,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.pesanaja.adapter.MenuAdapter
 import com.example.pesanaja.entities.CartItem
 import com.example.pesanaja.entities.MenuModel
-import com.example.pesanaja.ApiClient
 import retrofit2.Call
 import retrofit2.Callback
 import retrofit2.Response
@@ -30,7 +29,6 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
 
     private var listMenu: List<MenuModel> = emptyList()
 
-    // --- FIX BUG 2: Penangkap Data Balikan dari Checkout ---
     // Ini menangkap data keranjang terbaru kalau user menghapus item di Checkout
     private val checkoutLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
@@ -42,7 +40,6 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
                 cartList.addAll(updatedCart)
                 updateCheckoutButton()
 
-                // Opsional: Refresh tampilan list menu biar angkanya sinkron
                 (recyclerView.adapter as? MenuAdapter)?.notifyDataSetChanged()
             }
         }
@@ -147,14 +144,13 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
     override fun onVariantChange(menuId: Int, qty: Int, levelId: Int?, extraCost: Int, note: String?) {
         val menuDetail = listMenu.find { it.id == menuId } ?: return
 
-        // PENTING: Ubah null jadi "" biar perbandingannya akurat
         val noteBaru = note ?: ""
 
         // Cek apakah item dengan spek SAMA PERSIS sudah ada?
         val existingItem = cartList.find {
             it.menuId == menuId &&
                     it.levelId == levelId &&
-                    (it.notes ?: "") == noteBaru // Bandingkan string vs string (aman dari null)
+                    (it.notes ?: "") == noteBaru
         }
 
         if (existingItem != null) {
@@ -165,7 +161,6 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
             if (qty == 0) cartList.remove(existingItem)
 
         } else {
-            // Item belum ada, buat baru
             if (qty > 0) {
                 cartList.add(CartItem(
                     menuId = menuId,
@@ -189,7 +184,6 @@ class MenuActivity : AppCompatActivity(), MenuAdapter.OnCartChangeListener {
         intent.putExtra("meja", nomorMeja)
         intent.putExtra("cart_list", cartList)
 
-        // PENTING: Gunakan launcher agar bisa terima data balik
         checkoutLauncher.launch(intent)
     }
 }

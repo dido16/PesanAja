@@ -2,8 +2,6 @@ package com.example.pesanaja
 
 import android.content.Context
 import android.os.Bundle
-import android.util.Log
-import android.view.LayoutInflater
 import android.view.View
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
@@ -13,8 +11,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.pesanaja.adapter.HistoryAdapter
 import com.example.pesanaja.entities.HistoryResponse
 import com.example.pesanaja.entities.OrderModel
-import com.example.pesanaja.entities.OrderResponse
-import com.example.pesanaja.ApiClient
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Callback
@@ -53,7 +49,6 @@ class HistoryActivity : AppCompatActivity() {
             return
         }
 
-        // Tampilkan loading pas refresh
         progressBar.visibility = View.VISIBLE
 
         ApiClient.instance.getHistory(deviceId).enqueue(object : Callback<HistoryResponse> {
@@ -64,16 +59,28 @@ class HistoryActivity : AppCompatActivity() {
                     val listData = response.body()?.data ?: emptyList()
 
                     if (listData.isNotEmpty()) {
-                        // DISINI BEDANYA: Kita pasang aksi buat tombol 'onPayClick'
-                        val adapter = HistoryAdapter(listData,
-                            onPayClick = { orderYangMauDibayar ->
-                                showPaymentDialog(orderYangMauDibayar)
+
+                        // --- UPDATE DI SINI ---
+                        // Menambahkan callback ke-3 untuk DELETE
+                        val adapter = HistoryAdapter(
+                            historyList = listData,
+
+                            // Callback 1: Refresh list (misal habis bayar)
+                            onOrderUpdated = {
+                                loadHistory()
                             },
-                            onCancelClick = { orderYangMauDibatal ->
-                                // Tambahkan dialog konfirmasi sebelum menghapus
-                                showCancelConfirmation(orderYangMauDibatal)
+
+                            // Callback 2: Batalkan pesanan (Status Pending)
+                            onCancelClick = { order ->
+                                showCancelConfirmation(order)
+                            },
+
+                            // Callback 3: Hapus Riwayat (Status Cancelled)
+                            onDeleteClick = { order ->
+                                showDeleteConfirmation(order)
                             }
                         )
+
                         rvHistory.adapter = adapter
                         tvEmpty.visibility = View.GONE
                     } else {
@@ -91,97 +98,62 @@ class HistoryActivity : AppCompatActivity() {
         })
     }
 
-    // --- FUNGSI BAYAR SUSULAN (Copy-Paste Logic dari CheckoutActivity) ---
-    private fun showPaymentDialog(order: OrderModel) {
-        val dialogBuilder = AlertDialog.Builder(this)
-        // Kita pakai layout 'payment.xml' yang SAMA dengan Checkout
-        val view = LayoutInflater.from(this).inflate(R.layout.payment, null)
-
-        val tvTotal = view.findViewById<TextView>(R.id.tvTotalBayarDialog)
-        val rgMethod = view.findViewById<RadioGroup>(R.id.rgPaymentMethod)
-        val etPin = view.findViewById<EditText>(R.id.etPinPayment)
-        val btnBayar = view.findViewById<Button>(R.id.btnProsesBayar)
-        val btnBatal = view.findViewById<TextView>(R.id.btnBatalBayar)
-
-        // Set Total Harga
-        tvTotal.text = "Rp ${order.finalTotal.toInt()}"
-
-        dialogBuilder.setView(view)
-        val dialog = dialogBuilder.create()
-        dialog.setCancelable(true) // Kalau di history, boleh dicancel (tutup dialog)
-
-        btnBayar.setOnClickListener {
-            val pin = etPin.text.toString()
-            if (pin == "123456") {
-                btnBayar.text = "Memproses..."
-                btnBayar.isEnabled = false
-
-                // Panggil API Bayar
-                prosesBayarKeAPI(order.id, dialog)
-            } else {
-                Toast.makeText(this, "PIN Salah!", Toast.LENGTH_SHORT).show()
-            }
-        }
-
-        btnBatal.setOnClickListener {
-            dialog.dismiss()
-        }
-
-        dialog.show()
-    }
-
-    private fun prosesBayarKeAPI(orderId: Int, dialog: AlertDialog) {
-        ApiClient.instance.payOrder(orderId).enqueue(object : Callback<OrderResponse> {
-            override fun onResponse(call: Call<OrderResponse>, response: Response<OrderResponse>) {
-                dialog.dismiss()
-                if (response.isSuccessful) {
-                    Toast.makeText(this@HistoryActivity, "Pembayaran Berhasil!", Toast.LENGTH_LONG).show()
-
-                    // REFRESH LIST BIAR STATUSNYA JADI COMPLETED
-                    loadHistory()
-                } else {
-                    Toast.makeText(this@HistoryActivity, "Gagal Bayar", Toast.LENGTH_SHORT).show()
-                }
-            }
-
-            override fun onFailure(call: Call<OrderResponse>, t: Throwable) {
-                dialog.dismiss()
-                Toast.makeText(this@HistoryActivity, "Koneksi Error", Toast.LENGTH_SHORT).show()
-            }
-        })
-    }
-
+    // --- LOGIKA BATALKAN PESANAN (UPDATE STATUS -> CANCELLED) ---
     private fun showCancelConfirmation(order: OrderModel) {
         AlertDialog.Builder(this)
             .setTitle("Batalkan Pesanan")
             .setMessage("Apakah Anda yakin ingin membatalkan pesanan ini?")
             .setPositiveButton("Ya, Batal") { _, _ ->
-                prosesBatalKeAPI(order.id) // Panggil fungsi yang sudah ada
+                prosesBatalKeAPI(order.id)
             }
             .setNegativeButton("Tidak", null)
             .show()
     }
 
     private fun prosesBatalKeAPI(orderId: Int) {
-        // TEST: Jika Toast ini muncul, berarti listener tombol sudah benar
         Toast.makeText(this, "Membatalkan pesanan #$orderId...", Toast.LENGTH_SHORT).show()
 
         ApiClient.instance.updateOrderStatus(orderId, "cancelled").enqueue(object : Callback<ResponseBody> {
             override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
                 if (response.isSuccessful) {
                     Toast.makeText(this@HistoryActivity, "Berhasil Dibatalkan", Toast.LENGTH_SHORT).show()
-                    loadHistory() // Memuat ulang daftar
+                    loadHistory() // Refresh agar status berubah jadi CANCELLED dan tombol jadi HAPUS
                 } else {
-                    // TEST: Lihat pesan error dari server
-                    val errorMsg = response.errorBody()?.string()
-                    Log.e("API_ERROR", "Gagal: $errorMsg")
                     Toast.makeText(this@HistoryActivity, "Gagal: ${response.code()}", Toast.LENGTH_SHORT).show()
                 }
             }
 
             override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
-                Log.e("NETWORK_ERROR", t.message ?: "Unknown error")
                 Toast.makeText(this@HistoryActivity, "Kesalahan Jaringan", Toast.LENGTH_SHORT).show()
+            }
+        })
+    }
+
+    // --- LOGIKA HAPUS RIWAYAT (DELETE FROM DB) ---
+    private fun showDeleteConfirmation(order: OrderModel) {
+        AlertDialog.Builder(this)
+            .setTitle("Hapus Riwayat")
+            .setMessage("Hapus riwayat pesanan ini selamanya? Data tidak bisa dikembalikan.")
+            .setPositiveButton("Hapus") { _, _ ->
+                prosesHapusKeAPI(order.id)
+            }
+            .setNegativeButton("Batal", null)
+            .show()
+    }
+
+    private fun prosesHapusKeAPI(orderId: Int) {
+        ApiClient.instance.deleteOrder(orderId).enqueue(object : Callback<ResponseBody> {
+            override fun onResponse(call: Call<ResponseBody>, response: Response<ResponseBody>) {
+                if (response.isSuccessful) {
+                    Toast.makeText(this@HistoryActivity, "Riwayat dihapus", Toast.LENGTH_SHORT).show()
+                    loadHistory() // Refresh agar item hilang dari list
+                } else {
+                    Toast.makeText(this@HistoryActivity, "Gagal menghapus", Toast.LENGTH_SHORT).show()
+                }
+            }
+
+            override fun onFailure(call: Call<ResponseBody>, t: Throwable) {
+                Toast.makeText(this@HistoryActivity, "Error koneksi", Toast.LENGTH_SHORT).show()
             }
         })
     }

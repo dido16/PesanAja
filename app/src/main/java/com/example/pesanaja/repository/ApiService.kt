@@ -7,6 +7,7 @@ import com.example.pesanaja.entities.HistoryResponse
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.http.Body
+import retrofit2.http.DELETE
 import retrofit2.http.Field
 import retrofit2.http.FormUrlEncoded
 import retrofit2.http.GET
@@ -40,4 +41,7 @@ interface ApiService {
         @Path("id") id: Int,
         @Field("status") status: String
     ): Call<ResponseBody>
+
+    @DELETE("api/orders/{id}")
+    fun deleteOrder(@Path("id") id: Int): Call<ResponseBody>
 }
